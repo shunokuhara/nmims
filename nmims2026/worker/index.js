@@ -153,6 +153,7 @@ const DEFAULT_SETTINGS = [
   ["image_k", "5"], ["video_k", "5"],          // 1人が評価する作品数
   ["image_submit", "1"], ["video_submit", "1"], // 提出の受付
   ["image_eval", "1"], ["video_eval", "1"],    // 評価の受付
+  ["image_results", "0"], ["video_results", "0"], // 受けた評価の学生への公開（評価終了後に 1 にする）
   ["register_open", "1"], ["register_code", ""], // 自己登録の受付 / 合言葉（空なら不要）
   ["notice", ""],                              // 学生画面に出す告知
 ];
@@ -493,6 +494,7 @@ async function handleApi(url, request, env, db) {
       const nd = await db.prepare("SELECT COUNT(*) n FROM responses WHERE rater_email=?1 AND track=?2").bind(user.email, t).first();
       const avail = await db.prepare("SELECT COUNT(*) n FROM works WHERE track=?1 AND active=1 AND owner_email<>?2").bind(t, user.email).first();
       out[t] = { label: TRACKS[t].label, submit_open: s[`${t}_submit`] === "1", eval_open: s[`${t}_eval`] === "1",
+        results_open: s[`${t}_results`] === "1",
         k: Number(s[`${t}_k`]) || 0, work: w ? workPublic(w) : null,
         n_tasks: nt ? nt.n : 0, n_done: nd ? nd.n : 0, n_available: avail ? avail.n : 0 };
     }
@@ -500,6 +502,24 @@ async function handleApi(url, request, env, db) {
   }
 
   if (pathname === "/api/work" && m === "POST") return await apiSubmitWork(db, user, request, isAdmin);
+
+  // 自分の作品が受けた評価。管理者が「結果公開」にした課題だけ。評価者名は出さない。
+  if (pathname === "/api/results" && m === "GET") {
+    const track = trackOf(url.searchParams.get("track") || "");
+    if (!track) return json({ error: "bad_track" }, 400);
+    if ((await setting(db, `${track}_results`, "0")) !== "1") return json({ error: "results_closed" }, 403);
+    const w = await db.prepare("SELECT id,title FROM works WHERE track=?1 AND owner_email=?2").bind(track, user.email).first();
+    if (!w) return json({ track, work: null, n: 0 });
+    const rows = ((await db.prepare("SELECT answers FROM responses WHERE work_id=?1 ORDER BY updated_at").bind(w.id).all()).results || [])
+      .map((r) => parseAnswers(r.answers));
+    const items = scoreItems(track), textItems = TRACKS[track].items.filter((i) => i.type === "text");
+    const per = items.map((it) => ({ id: it.id, name: it.name, max: itemMax(it),
+      mean: r2(mean(rows.map((a) => Number(a[it.id]) || 0))) }));
+    const tot = rows.map((a) => items.reduce((x, it) => x + (Number(a[it.id]) || 0), 0));
+    const comments = textItems.map((it) => ({ id: it.id, name: it.name,
+      texts: rows.map((a) => String(a[it.id] || "").trim()).filter(Boolean) }));
+    return json({ track, work: { id: w.id, title: w.title }, n: rows.length, per, total: r2(mean(tot)), max: trackMax(track), comments });
+  }
 
   // 作品ファイルの配信。閲覧できるのは 管理者 / 提出者本人 / その作品を割り当てられた評価者。
   // HTML は sandbox 付き CSP で返し、アプリのオリジン権限を持たせない（学生の HTML は信用しない）。
