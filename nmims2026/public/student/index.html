@@ -46,6 +46,7 @@ async function refresh(){
   const d=await api('/api/dashboard'); if(!d)return;
   if(d.notice){$('#notice').style.display='block';$('#notice').innerHTML='<h2>Notice from the instructor</h2><p style="white-space:pre-wrap;margin:0">'+esc(d.notice)+'</p>';}
   $('#view').innerHTML=Object.entries(d.tracks).map(([t,x])=>renderTrack(t,x)).join('');
+  for(const t of Object.keys(d.tracks)) if(d.tracks[t].results_open) loadFeedback(t);
   for(const t of Object.keys(d.tracks)){
     const f=document.querySelector(`form[data-track="${t}"]`); if(!f)continue;
     f.addEventListener('submit',async e=>{
@@ -91,11 +92,24 @@ function renderTrack(t,x){
       <div class="bar" style="max-width:260px;margin-bottom:12px"><i style="width:${n?Math.round(100*done/n):0}%"></i></div>
       <a href="/evaluate/?track=${t}"><button ${n&&done>=n?'class="sec"':''}>${n&&done>=n?'Review my evaluations':(done?'Continue evaluating':'Start evaluating')}</button></a>`;
 
+  const fb=x.results_open?`<div id="fb_${t}"><h3>Feedback you received</h3><p class="mut">Loading…</p></div>`:'';
   return `<div class="card"><h2>${esc(m.label)}</h2>
     <div class="grid2">
       <div><h3>Your submission</h3>${status}${form}</div>
       <div><h3>Evaluate classmates</h3>${evalPart}</div>
-    </div></div>`;
+    </div>${fb}</div>`;
+}
+
+async function loadFeedback(t){
+  const box=document.getElementById('fb_'+t); if(!box)return;
+  const r=await fetch('/api/results?track='+t); const d=await r.json().catch(()=>({}));
+  if(!r.ok){box.innerHTML='<h3>Feedback you received</h3><p class="mut">Not available.</p>';return;}
+  if(!d.work){box.innerHTML='<h3>Feedback you received</h3><p class="mut">You did not submit this assignment.</p>';return;}
+  if(!d.n){box.innerHTML='<h3>Feedback you received</h3><p class="mut">No evaluations have been submitted for your work yet.</p>';return;}
+  const rows=d.per.map(p=>`<tr><td>${esc(p.name)}</td><td>${p.mean??'-'} / ${p.max}</td></tr>`).join('');
+  const comments=d.comments.map(c=>`<h3>${esc(c.name)}</h3>${c.texts.length?'<ul style="margin:0;padding-left:20px">'+c.texts.map(x=>`<li>${esc(x)}</li>`).join('')+'</ul>':'<p class="mut">No comments.</p>'}`).join('');
+  box.innerHTML=`<h3>Feedback you received <span class="sub">${d.n} evaluation${d.n===1?'':'s'}, evaluators are anonymous</span></h3>
+    <table style="max-width:480px"><tbody>${rows}<tr><th>Overall</th><th>${d.total??'-'} / ${d.max}</th></tr></tbody></table>${comments}`;
 }
 
 $('#pw_go').addEventListener('click',async()=>{
