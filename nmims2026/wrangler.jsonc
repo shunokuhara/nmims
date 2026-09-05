@@ -11,7 +11,7 @@
   // awec2026（videoeval）とは別の Worker・別の D1。既存の実験データには触れない。
   // D1 を新規作成し、その Database ID をここに貼る。
   "d1_databases": [
-    { "binding": "DB", "database_name": "peereval", "database_id": "REPLACE_WITH_D1_ID" }
+    { "binding": "DB", "database_name": "peereval", "database_id": "9e213d91-6d34-4094-ad20-955efc2f27ad" }
   ]
 
   // シークレット（ダッシュボードで設定）:
