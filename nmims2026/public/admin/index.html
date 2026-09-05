@@ -15,9 +15,11 @@
       <div class="narrow"><label>課題1 提出受付</label><select id="s_image_submit"><option value="1">受付中</option><option value="0">停止</option></select></div>
       <div class="narrow"><label>課題1 評価受付</label><select id="s_image_eval"><option value="1">受付中</option><option value="0">停止</option></select></div>
       <div class="narrow"><label>課題1 1人あたり評価数</label><input id="s_image_k" type="number" min="0" max="100"></div>
+      <div class="narrow"><label>課題1 結果公開</label><select id="s_image_results"><option value="0">非公開</option><option value="1">公開</option></select></div>
       <div class="narrow"><label>課題2 提出受付</label><select id="s_video_submit"><option value="1">受付中</option><option value="0">停止</option></select></div>
       <div class="narrow"><label>課題2 評価受付</label><select id="s_video_eval"><option value="1">受付中</option><option value="0">停止</option></select></div>
       <div class="narrow"><label>課題2 1人あたり評価数</label><input id="s_video_k" type="number" min="0" max="100"></div>
+      <div class="narrow"><label>課題2 結果公開</label><select id="s_video_results"><option value="0">非公開</option><option value="1">公開</option></select></div>
     </div>
     <div class="row" style="margin-top:8px">
       <div class="narrow"><label>自己登録</label><select id="s_register_open"><option value="1">受付中</option><option value="0">停止</option></select></div>
@@ -25,7 +27,7 @@
       <div><label>学生画面に出す告知（締切など）</label><input id="s_notice"></div>
       <div class="narrow"><label>&nbsp;</label><button id="s_save">保存</button></div>
     </div>
-    <p class="mut" style="margin-top:8px">評価数を増やすと、学生が次に評価画面を開いたときに不足分が自動で追加されます。減らしても割当済みの分は消えません。</p>
+    <p class="mut" style="margin-top:8px">「結果公開」を公開にすると、学生のマイページに自分の作品が受けた評価（項目別平均・総合平均・コメント。評価者名は非表示）が出ます。評価期間中に見せると後の評価に影響するので、評価受付を停止してから公開してください。評価数を増やすと、学生が次に評価画面を開いたときに不足分が自動で追加されます。減らしても割当済みの分は消えません。</p>
   </div>
 
   <div class="card">
@@ -113,10 +115,10 @@ async function loadMe(){const d=await api('/api/me');if(!d)return;if(d.role!=='a
 
 async function loadSettings(){
   const d=await api('/api/admin/settings'); if(!d)return;
-  for(const k of ['image_submit','image_eval','image_k','video_submit','video_eval','video_k','register_open','register_code','notice']) $('#s_'+k).value=d.settings[k];
+  for(const k of ['image_submit','image_eval','image_k','image_results','video_submit','video_eval','video_k','video_results','register_open','register_code','notice']) $('#s_'+k).value=d.settings[k];
 }
 $('#s_save').addEventListener('click',async()=>{
-  const b={};for(const k of ['image_submit','image_eval','image_k','video_submit','video_eval','video_k','register_open','register_code','notice']) b[k]=$('#s_'+k).value;
+  const b={};for(const k of ['image_submit','image_eval','image_k','image_results','video_submit','video_eval','video_k','video_results','register_open','register_code','notice']) b[k]=$('#s_'+k).value;
   if(await post('/api/admin/settings',b))show('設定を保存しました','ok');
 });
 
