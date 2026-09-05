@@ -1,0 +1,134 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Evaluate — Peer Evaluation</title><link rel="stylesheet" href="/styles.css"></head><body>
+<header>
+  <h1 id="title">Evaluate</h1>
+  <span id="prog" class="mut"></span>
+  <div class="bar" style="width:160px"><i id="progbar" style="width:0%"></i></div>
+  <span class="sp"></span>
+  <a href="/student/" class="mut">My page</a>
+  <button class="sec" id="logout">Sign out</button>
+</header>
+<main>
+  <div id="msg" class="msg"></div>
+  <div id="nav" class="tabs"></div>
+  <div id="view"></div>
+</main>
+<script>
+const $=(s)=>document.querySelector(s);
+const esc=(s)=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const show=(t,k)=>{const m=$('#msg');m.textContent=t;m.className='msg '+k;setTimeout(()=>{m.className='msg'},5000);};
+async function api(p,o){const r=await fetch(p,o);if(r.status===401){location.href='/';return null;}
+  const d=await r.json().catch(()=>({}));if(!r.ok){show(errText(d)||('Error: '+(d.error||r.status)),'err');return null;}return d;}
+function errText(d){const e=String(d.error||'');
+  if(e.startsWith('too_short'))return `Your comment has ${d.words} words. Please write at least ${d.min}.`;
+  if(e.startsWith('too_long'))return `Your comment has ${d.words} words. Please keep it under ${d.max}.`;
+  if(e==='closed')return 'Evaluation for this assignment is closed.';
+  if(e==='bad_track')return 'Unknown assignment.';return '';}
+const wordCount=(s)=>String(s||'').trim().split(/\s+/).filter(Boolean).length;
+
+const TRACK=new URLSearchParams(location.search).get('track')||'image';
+let ITEMS=null,LAYER={},STATE=null,shownAt=0,cur=null;
+
+async function boot(){
+  const me=await api('/api/me'); if(!me)return;
+  const it=await api('/api/items?track='+encodeURIComponent(TRACK)); if(!it)return;
+  ITEMS=it.items;LAYER=it.layer_label;$('#title').textContent=it.label;document.title=it.label+' — Peer Evaluation';
+  await refresh();
+}
+
+async function refresh(){
+  STATE=await api('/api/tasks?track='+encodeURIComponent(TRACK)); if(!STATE)return;
+  const done=STATE.tasks.filter(t=>t.done).length,n=STATE.tasks.length;
+  $('#prog').textContent=`${done} / ${n}`;
+  $('#progbar').style.width=(n?Math.round(100*done/n):0)+'%';
+  $('#nav').innerHTML=STATE.tasks.map(t=>`<a href="#" data-pos="${t.position}" class="${cur===t.position?'on':''}">#${t.position+1}${t.done?' ✓':''}</a>`).join('');
+  document.querySelectorAll('#nav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();cur=Number(a.dataset.pos);render();}));
+  if(!STATE.eval_open){$('#view').innerHTML=`<div class="card"><h2>Evaluation is closed</h2><p class="mut">The instructor has closed peer evaluation for this assignment.</p></div>`;return;}
+  if(!n){$('#view').innerHTML=`<div class="card"><h2>Nothing to evaluate yet</h2><p class="mut">No classmates' work has been submitted for this assignment. Please come back later.</p></div>`;return;}
+  if(cur==null){const next=STATE.tasks.find(t=>!t.done);cur=next?next.position:null;}
+  render();
+}
+
+function render(){
+  if(cur==null){renderDone();return;}
+  const t=STATE.tasks.find(x=>x.position===cur); if(!t){renderDone();return;}
+  document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',Number(a.dataset.pos)===cur));
+  const prev=t.answers||{};
+  const qs=ITEMS.map(it=>{
+    if(it.type==='text'){
+      return `<div class="q"><div class="qh">${esc(it.name)}<span class="sub">${esc(it.hint||'')}</span><span class="badge">${esc(LAYER[it.layer]||'')}</span></div>
+        <textarea name="${it.id}" rows="3" placeholder="Be specific: name the element, the color, the sign, the scene…">${esc(prev[it.id]||'')}</textarea>
+        <div class="wc" data-for="${it.id}">0 words</div></div>`;
+    }
+    const opts=it.options.map((o,i)=>`<label class="opt ${prev[it.id]===i?'on':''}"><input type="radio" name="${it.id}" value="${i}" ${prev[it.id]===i?'checked':''}>${esc(o)}</label>`).join('');
+    return `<div class="q"><div class="qh">${esc(it.name)}<span class="badge">${esc(LAYER[it.layer]||'')}</span></div>
+      ${it.desc?`<p class="mut" style="margin:0 0 6px">${esc(it.desc)}</p>`:''}${opts}</div>`;
+  }).join('');
+
+  let viewer='';
+  if(TRACK==='image'){
+    if(t.has_file&&t.is_html) viewer=`<div class="workbox"><iframe src="/api/work/${esc(t.work_id)}/file" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe></div>
+      <p class="mut" style="margin-top:6px"><a href="/api/work/${esc(t.work_id)}/file" target="_blank" rel="noopener">Open in a new tab (full size)</a></p>`;
+    else if(t.has_file) viewer=`<div class="workbox"><img src="/api/work/${esc(t.work_id)}/file" alt="submitted work"></div>
+      <p class="mut" style="margin-top:6px"><a href="/api/work/${esc(t.work_id)}/file" target="_blank" rel="noopener">Open in a new tab (full size)</a></p>`;
+    if(t.url) viewer+=`<p class="mut">Link provided by the author: <a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.url)}</a></p>`;
+    if(!viewer) viewer=`<p class="mut">This work has no file or link.</p>`;
+  }else{
+    viewer=t.embed_url
+      ? `<div class="videobox"><iframe src="${esc(t.embed_url)}" allow="autoplay; fullscreen" allowfullscreen referrerpolicy="no-referrer"></iframe></div>
+         <p class="mut" style="margin-top:6px">If the player does not load, <a href="${esc(t.url)}" target="_blank" rel="noopener">open the video in a new tab</a>.</p>`
+      : `<p class="mut">This video cannot be embedded here. Open the link in a new tab and watch it there.</p>
+         <p><a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.url)}</a></p>`;
+  }
+
+  $('#view').innerHTML=`<div class="card">
+      <h2>Work #${t.position+1}${t.title?` <span class="sub">${esc(t.title)}</span>`:''}${t.done?' <span class="pill ok">submitted</span>':''}</h2>${viewer}
+      <p class="mut" style="margin-top:8px">The author's name is hidden. Judge the work itself.</p>
+    </div>
+    <div class="card">${qs}
+      <div style="margin-top:18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button id="submit">${t.done?'Update and continue':'Submit and continue'}</button>
+        <span class="mut" id="hint"></span>
+      </div>
+    </div>`;
+  shownAt=Date.now();
+  document.querySelectorAll('.opt input').forEach(r=>r.addEventListener('change',()=>{
+    document.querySelectorAll(`input[name="${r.name}"]`).forEach(x=>x.closest('.opt').classList.toggle('on',x.checked));
+  }));
+  document.querySelectorAll('textarea[name]').forEach(ta=>{
+    const it=ITEMS.find(i=>i.id===ta.name), wc=document.querySelector(`.wc[data-for="${ta.name}"]`);
+    const upd=()=>{const n=wordCount(ta.value);wc.textContent=`${n} words`;wc.classList.toggle('bad',n<(it.min_words||1)||n>(it.max_words||999));};
+    ta.addEventListener('input',upd);upd();
+  });
+  $('#submit').addEventListener('click',async()=>{
+    const answers={};
+    for(const it of ITEMS){
+      if(it.type==='text'){
+        const v=document.querySelector(`textarea[name="${it.id}"]`).value.trim(), n=wordCount(v);
+        if(n<(it.min_words||1)){$('#hint').textContent=`"${it.name}" needs at least ${it.min_words} words (now ${n}).`;return;}
+        if(n>(it.max_words||999)){$('#hint').textContent=`"${it.name}" should be under ${it.max_words} words (now ${n}).`;return;}
+        answers[it.id]=v;
+      }else{
+        const c=document.querySelector(`input[name="${it.id}"]:checked`);
+        if(!c){$('#hint').textContent='Please answer every item.';return;}
+        answers[it.id]=Number(c.value);
+      }
+    }
+    $('#submit').disabled=true;
+    const d=await api('/api/response',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({track:TRACK,position:t.position,answers,elapsed_ms:Date.now()-shownAt})});
+    if(d){window.scrollTo(0,0);cur=null;refresh();}else{$('#submit').disabled=false;}
+  });
+  window.scrollTo(0,0);
+}
+
+function renderDone(){
+  document.querySelectorAll('#nav a').forEach(a=>a.classList.remove('on'));
+  $('#view').innerHTML=`<div class="card"><h2>All done for this assignment</h2>
+    <p class="mut">Thank you. You can revisit any work from the numbered tabs above to change your answers, or go back to <a href="/student/">your page</a>.</p></div>`;
+}
+
+$('#logout').addEventListener('click',async()=>{await fetch('/api/logout',{method:'POST'});location.href='/';});
+boot();
+</script></body></html>

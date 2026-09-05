@@ -1,0 +1,107 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My page — Peer Evaluation</title><link rel="stylesheet" href="/styles.css"></head><body>
+<header>
+  <h1>Agentic AI — Peer Evaluation</h1>
+  <span class="sp"></span>
+  <span id="who" class="mut"></span>
+  <button class="sec" id="logout">Sign out</button>
+</header>
+<main>
+  <div id="msg" class="msg"></div>
+  <div id="notice" class="card" style="display:none"></div>
+  <div id="view"></div>
+
+  <div class="card">
+    <details><summary>Change password</summary>
+      <div class="row" style="margin-top:8px">
+        <div><label>Current password</label><input id="pw_cur" type="password" autocomplete="current-password"></div>
+        <div><label>New password (8+)</label><input id="pw_new" type="password" autocomplete="new-password"></div>
+        <div class="narrow"><label>&nbsp;</label><button class="sec" id="pw_go">Change</button></div>
+      </div>
+    </details>
+  </div>
+</main>
+<script>
+const $=(s)=>document.querySelector(s);
+const esc=(s)=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const show=(t,k)=>{const m=$('#msg');m.textContent=t;m.className='msg '+k;setTimeout(()=>{m.className='msg'},6000);window.scrollTo(0,0);};
+async function api(p,o){const r=await fetch(p,o);if(r.status===401){location.href='/';return null;}
+  const d=await r.json().catch(()=>({}));if(!r.ok){show(ERR[d.error]||('Error: '+(d.error||r.status)),'err');return null;}return d;}
+const ERR={submit_closed:'Submission for this assignment is closed.',bad_url:'Please enter a full URL starting with http:// or https://.',
+  file_too_large:'The file is too large (max 1.5 MB). Export a screenshot (PNG/JPG) instead.',bad_file_type:'Allowed files: .html, .png, .jpg, .webp, .svg',
+  nothing_to_submit:'Choose a file or enter a link.',url_required:'A video link is required.',invalid:'Current password is wrong.',weak_password:'Password must be at least 8 characters.'};
+let META=null;
+
+async function boot(){
+  const me=await api('/api/me'); if(!me)return;
+  if(me.role==='admin'){location.href='/admin/';return;}
+  $('#who').textContent=(me.name||me.email)+(me.student_id?' ('+me.student_id+')':'');
+  META=await api('/api/items'); if(!META)return;
+  await refresh();
+}
+function fmtBytes(n){return n>1e6?(n/1e6).toFixed(2)+' MB':Math.round(n/1e3)+' KB';}
+
+async function refresh(){
+  const d=await api('/api/dashboard'); if(!d)return;
+  if(d.notice){$('#notice').style.display='block';$('#notice').innerHTML='<h2>Notice from the instructor</h2><p style="white-space:pre-wrap;margin:0">'+esc(d.notice)+'</p>';}
+  $('#view').innerHTML=Object.entries(d.tracks).map(([t,x])=>renderTrack(t,x)).join('');
+  for(const t of Object.keys(d.tracks)){
+    const f=document.querySelector(`form[data-track="${t}"]`); if(!f)continue;
+    f.addEventListener('submit',async e=>{
+      e.preventDefault();
+      const btn=f.querySelector('button[type=submit]');btn.disabled=true;btn.textContent='Uploading…';
+      const fd=new FormData(f);
+      const r=await api('/api/work',{method:'POST',body:fd});
+      btn.disabled=false;btn.textContent='Submit';
+      if(r){show(r.updated?'Your submission was updated.':'Submitted. Thank you.','ok');refresh();}
+    });
+  }
+}
+
+function renderTrack(t,x){
+  const m=META.tracks[t];
+  const w=x.work;
+  let status='';
+  if(w){
+    const what=w.has_file?`<code>${esc(w.file_name)}</code> (${fmtBytes(w.file_size)})`:'';
+    const link=w.url?`<a href="${esc(w.url)}" target="_blank" rel="noopener">${esc(w.url)}</a>`:'';
+    status=`<p><span class="pill ok">Submitted</span> <span class="mut">${esc(w.updated_at.slice(0,16).replace('T',' '))} UTC</span></p>
+      <p class="mut">${what}${what&&link?' · ':''}${link}${w.title?' · '+esc(w.title):''}</p>
+      ${w.has_file?`<p class="mut"><a href="/api/work/${esc(w.id)}/file" target="_blank" rel="noopener">Preview what evaluators will see</a></p>`:''}`;
+  }else status=`<p><span class="pill warn">Not submitted yet</span></p>`;
+
+  const fileRow=t==='image'?`<div><label>File (.html / .png / .jpg, max 1.5 MB)</label><input type="file" name="file" accept="${esc(m.accept)}"></div>`:'';
+  const urlLabel=t==='image'?'Link (optional, e.g. OneDrive / Google Drive share link)':'Video link (Google Drive / YouTube / Vimeo)';
+  const form=x.submit_open?`
+    <form data-track="${t}" enctype="multipart/form-data">
+      <input type="hidden" name="track" value="${t}">
+      <p class="mut">${esc(m.submit)} ${w?'Submitting again replaces your previous submission.':''}</p>
+      ${fileRow}
+      <div><label>${urlLabel}</label><input name="url" type="url" placeholder="https://" value="${esc(w&&w.url||'')}"></div>
+      <div><label>Title / theme of your work (optional, shown to evaluators)</label><input name="title" maxlength="120" value="${esc(w&&w.title||'')}"></div>
+      <div style="margin-top:12px"><button type="submit">Submit</button></div>
+    </form>`:`<p class="mut">Submission is closed.</p>`;
+
+  let evalPart='';
+  const done=x.n_done,n=x.n_tasks;
+  if(!x.eval_open) evalPart=`<p class="mut">Peer evaluation is not open yet.</p>`;
+  else if(n===0 && x.n_available===0) evalPart=`<p class="mut">No classmates' work is available to evaluate yet. Come back later.</p>`;
+  else evalPart=`<p>${n?`${done} / ${n} done`:`You will evaluate ${x.k} works.`}</p>
+      <div class="bar" style="max-width:260px;margin-bottom:12px"><i style="width:${n?Math.round(100*done/n):0}%"></i></div>
+      <a href="/evaluate/?track=${t}"><button ${n&&done>=n?'class="sec"':''}>${n&&done>=n?'Review my evaluations':(done?'Continue evaluating':'Start evaluating')}</button></a>`;
+
+  return `<div class="card"><h2>${esc(m.label)}</h2>
+    <div class="grid2">
+      <div><h3>Your submission</h3>${status}${form}</div>
+      <div><h3>Evaluate classmates</h3>${evalPart}</div>
+    </div></div>`;
+}
+
+$('#pw_go').addEventListener('click',async()=>{
+  const d=await api('/api/password',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({current:$('#pw_cur').value,password:$('#pw_new').value})});
+  if(d){show('Password changed.','ok');$('#pw_cur').value='';$('#pw_new').value='';}
+});
+$('#logout').addEventListener('click',async()=>{await fetch('/api/logout',{method:'POST'});location.href='/';});
+boot();
+</script></body></html>

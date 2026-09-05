@@ -1,0 +1,7 @@
+{
+  "name": "nmims2026",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "wrangler dev", "deploy": "wrangler deploy", "test": "node --experimental-sqlite test/harness.mjs" },
+  "devDependencies": { "wrangler": "^4" }
+}

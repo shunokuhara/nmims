@@ -1,0 +1,42 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Peer Evaluation — Register</title><link rel="stylesheet" href="/styles.css"></head><body>
+<main class="login" style="max-width:420px">
+  <div class="card">
+    <h2>Create your account</h2>
+    <div id="msg" class="msg"></div>
+    <div id="form">
+      <p class="mut">Use the same email address for the whole course. You will submit your work and evaluate classmates' work with this account.</p>
+      <label>Full name</label><input id="name" autocomplete="name">
+      <label>Student ID / Roll number</label><input id="sid">
+      <label>Email</label><input id="email" type="email" autocomplete="username">
+      <label>Password (8+ characters)</label><input id="pw" type="password" autocomplete="new-password">
+      <div id="codebox" style="display:none"><label>Course code (given in class)</label><input id="code" autocomplete="off"></div>
+      <div style="margin-top:14px"><button id="go" style="width:100%">Register</button></div>
+    </div>
+    <p class="mut" style="margin-top:14px">Already registered? <a href="/">Sign in</a>.</p>
+  </div>
+</main>
+<script>
+const $=(s)=>document.querySelector(s);
+function show(t,k){const m=$('#msg');m.textContent=t;m.className='msg '+k;}
+fetch('/api/register').then(r=>r.json()).then(d=>{
+  if(d.error==='not_initialized'){show('The system is not set up yet.','err');$('#form').style.display='none';return;}
+  if(!d.open){show('Registration is closed. Ask the instructor.','err');$('#form').style.display='none';return;}
+  if(d.code_required)$('#codebox').style.display='block';
+}).catch(()=>show('Network error','err'));
+const ERR={bad_email:'Please enter a valid email address.',name_required:'Please enter your name.',weak_password:'Password must be at least 8 characters.',
+  exists:'This email is already registered. Sign in instead.',bad_code:'The course code is wrong.',register_closed:'Registration is closed.'};
+async function reg(){
+  $('#go').disabled=true;
+  try{
+    const r=await fetch('/api/register',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({name:$('#name').value,student_id:$('#sid').value,email:$('#email').value,password:$('#pw').value,code:$('#code').value})});
+    const d=await r.json();
+    if(!r.ok){show(ERR[d.error]||('Error: '+d.error),'err');$('#go').disabled=false;return;}
+    location.href='/student/';
+  }catch(e){show('Network error','err');$('#go').disabled=false;}
+}
+$('#go').addEventListener('click',reg);
+document.addEventListener('keydown',e=>{if(e.key==='Enter')reg();});
+</script></body></html>

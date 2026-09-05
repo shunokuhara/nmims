@@ -1,0 +1,29 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Peer Evaluation — Sign in</title><link rel="stylesheet" href="/styles.css"></head><body>
+<main class="login">
+  <div class="card">
+    <h2>Agentic AI — Peer Evaluation</h2>
+    <div id="msg" class="msg"></div>
+    <label>Email</label><input id="email" type="email" autocomplete="username">
+    <label>Password</label><input id="pw" type="password" autocomplete="current-password">
+    <div style="margin-top:14px"><button id="go" style="width:100%">Sign in</button></div>
+    <p class="mut" style="margin-top:14px">First time here? <a href="/register/">Create an account</a>.</p>
+  </div>
+</main>
+<script>
+const $=(s)=>document.querySelector(s);
+function show(t,k){const m=$('#msg');m.textContent=t;m.className='msg '+k;}
+async function login(){
+  $('#go').disabled=true;
+  try{
+    const r=await fetch('/api/login',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({email:$('#email').value,password:$('#pw').value})});
+    const d=await r.json();
+    if(!r.ok){show(d.error==='invalid'?'Wrong email or password.':d.error==='not_initialized'?'The system is not set up yet.':'Error: '+d.error,'err');$('#go').disabled=false;return;}
+    location.href = d.role==='admin' ? '/admin/' : '/student/';
+  }catch(e){show('Network error','err');$('#go').disabled=false;}
+}
+$('#go').addEventListener('click',login);
+document.addEventListener('keydown',e=>{if(e.key==='Enter')login();});
+</script></body></html>
