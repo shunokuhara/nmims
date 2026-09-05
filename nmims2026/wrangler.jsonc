@@ -3,18 +3,30 @@
   "name": "nmims2026",
   "main": "worker/index.js",
   "compatibility_date": "2026-05-31",
-  "observability": { "enabled": true },
+  "observability": {
+    "enabled": true
+  },
 
-  // 静的ページは ./public。Worker は /api/* だけを処理し、それ以外は assets に流す。
-  "assets": { "directory": "./public", "binding": "ASSETS" },
+  // ダッシュボードで設定したSecretをデプロイ時にも維持する。
+  "keep_vars": true,
 
-  // awec2026（videoeval）とは別の Worker・別の D1。既存の実験データには触れない。
-  // D1 を新規作成し、その Database ID をここに貼る。
+  // 静的ページは ./public。Workerは /api/* だけを処理し、
+  // それ以外はassetsに流す。
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+
+  // awec2026とは別のWorker・別のD1を使用する。
   "d1_databases": [
-    { "binding": "DB", "database_name": "peereval", "database_id": "9e213d91-6d34-4094-ad20-955efc2f27ad" }
+    {
+      "binding": "DB",
+      "database_name": "peereval",
+      "database_id": "9e213d91-6d34-4094-ad20-955efc2f27ad"
+    }
   ]
 
-  // シークレット（ダッシュボードで設定）:
-  //   SESSION_SECRET   Cookie の署名鍵
-  //   BOOTSTRAP_TOKEN  /setup/ の合言葉（初期化後は削除してよい）
+  // ダッシュボードで設定するSecret:
+  // SESSION_SECRET
+  // BOOTSTRAP_TOKEN
 }
