@@ -72,6 +72,7 @@ function render(){
       <p class="mut" style="margin-top:6px"><a href="/api/work/${esc(t.work_id)}/file" target="_blank" rel="noopener">Open in a new tab (full size)</a></p>`;
     else if(t.has_file) viewer=`<div class="workbox"><img src="/api/work/${esc(t.work_id)}/file" alt="submitted work"></div>
       <p class="mut" style="margin-top:6px"><a href="/api/work/${esc(t.work_id)}/file" target="_blank" rel="noopener">Open in a new tab (full size)</a></p>`;
+    if(t.title) viewer+=`<p class="mut" style="margin-top:6px">Prompt used by the author:</p><pre style="white-space:pre-wrap;font-family:inherit;font-size:13px;margin:4px 0 0;padding:8px 10px;background:#0d1016;border:1px solid var(--line);border-radius:6px">${esc(t.title)}</pre>`;
     if(t.url) viewer+=`<p class="mut">Link provided by the author: <a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.url)}</a></p>`;
     if(!viewer) viewer=`<p class="mut">This work has no file or link.</p>`;
   }else{
@@ -80,10 +81,11 @@ function render(){
          <p class="mut" style="margin-top:6px">If the player does not load, <a href="${esc(t.url)}" target="_blank" rel="noopener">open the video in a new tab</a>.</p>`
       : `<p class="mut">This video cannot be embedded here. Open the link in a new tab and watch it there.</p>
          <p><a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.url)}</a></p>`;
+    if(t.title) viewer+=`<p class="mut" style="margin-top:6px">Prompt used by the author:</p><pre style="white-space:pre-wrap;font-family:inherit;font-size:13px;margin:4px 0 0;padding:8px 10px;background:#0d1016;border:1px solid var(--line);border-radius:6px">${esc(t.title)}</pre>`;
   }
 
   $('#view').innerHTML=`<div class="card">
-      <h2>Work #${t.position+1}${t.title?` <span class="sub">${esc(t.title)}</span>`:''}${t.done?' <span class="pill ok">submitted</span>':''}</h2>${viewer}
+      <h2>Work #${t.position+1}${t.done?' <span class="pill ok">submitted</span>':''}</h2>${viewer}
       <p class="mut" style="margin-top:8px">The author's name is hidden. Judge the work itself.</p>
     </div>
     <div class="card">${qs}
