@@ -24,8 +24,10 @@ class Stmt {
   constructor(db, sql, args = null) { this.db = db; this.sql = sql; this.args = args; }
   bind(...args) { return new Stmt(this.db, this.sql, args); }
   _prep() { const s = this.db.prepare(this.sql); return { s, a: this.args ? bindArgs(this.sql, this.args) : [] }; }
-  async first() { const { s, a } = this._prep(); const r = s.get(...a); return r === undefined ? null : r; }
-  async all() { const { s, a } = this._prep(); return { results: s.all(...a), success: true }; }
+  // 本物の D1 は BLOB を number[] で返すので、それに合わせる
+  _row(r) { if (!r) return r; for (const k in r) if (r[k] instanceof Uint8Array) r[k] = Array.from(r[k]); return r; }
+  async first() { const { s, a } = this._prep(); const r = s.get(...a); return r === undefined ? null : this._row(r); }
+  async all() { const { s, a } = this._prep(); return { results: s.all(...a).map((r) => this._row(r)), success: true }; }
   async run() { const { s, a } = this._prep(); s.run(...a); return { success: true }; }
 }
 class D1 {
@@ -178,6 +180,7 @@ const notAssigned = ws.filter((w) => w.track === "image" && w.has_file && w.id !
 const f1 = await call("GET", `/api/work/${assignedId}/file`, { as: students[0].email });
 ok(f1.status === 200 && String(f1.headers.get("content-type")).startsWith("text/html"), "割り当てられた作品のファイルは見られる");
 ok(String(f1.headers.get("content-security-policy")).startsWith("sandbox"), "HTML は sandbox 付き CSP で返る");
+ok(typeof f1.data === "string" && f1.data.startsWith("<!doctype html") || String(f1.data).includes("<html"), "ファイルの中身がバイト列のまま返る（number[] の文字列化ではない）", String(f1.data).slice(0, 30));
 ok((await call("GET", `/api/work/i001/file`, { as: students[0].email })).status === 200, "自分の作品は見られる");
 if (notAssigned) ok((await call("GET", `/api/work/${notAssigned.id}/file`, { as: students[0].email })).status === 403, "割り当てられていない作品は 403");
 ok((await call("GET", `/api/work/${assignedId}/file`, { as: admin })).status === 200, "管理者は全部見られる");
