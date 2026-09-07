@@ -80,7 +80,7 @@ function renderTrack(t,x){
       <p class="mut">${esc(m.submit)} ${w?'Submitting again replaces your previous submission.':''}</p>
       ${fileRow}
       <div><label>${urlLabel}</label><input name="url" type="url" placeholder="https://" value="${esc(w&&w.url||'')}"></div>
-      <div><label>Title / theme of your work (optional, shown to evaluators)</label><input name="title" maxlength="120" value="${esc(w&&w.title||'')}"></div>
+      <div><label>Prompt you used (optional, shown to evaluators, max 500 characters)</label><textarea name="title" rows="4" maxlength="500" placeholder="e.g. Turn Shinsekai into Mumbai at night: Gateway of India, auto-rickshaws, marigold lights">${esc(w&&w.title||'')}</textarea></div>
       <div style="margin-top:12px"><button type="submit">Submit</button></div>
     </form>`:`<p class="mut">Submission is closed.</p>`;
 
