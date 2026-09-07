@@ -9,3 +9,4 @@
 | shunokuhara@icloud.com | 奥原 駿 | `MMDGeHGbizjFYHVbXCqm` |
 
 学生のアカウントは /register/ で各自が作る。パスワード忘れは管理画面の「追加 / 更新」でリセットする。
+
