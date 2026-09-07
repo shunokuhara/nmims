@@ -534,7 +534,7 @@ async function handleApi(url, request, env, db) {
     }
     return new Response(w.file_blob, { status: 200, headers: {
       "content-type": w.file_type || "application/octet-stream",
-      "content-security-policy": "sandbox allow-scripts; default-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'unsafe-inline'; img-src * data: blob:; font-src * data:",
+      "content-security-policy": "sandbox allow-scripts; default-src * data: blob: 'unsafe-inline' 'unsafe-eval'; frame-ancestors 'self'",
       "x-content-type-options": "nosniff", "cache-control": "private, max-age=300",
       "content-disposition": `inline; filename="${String(w.file_name || id).replace(/[^\w.\-]/g, "_")}"` } });
   }
