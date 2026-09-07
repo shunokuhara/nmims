@@ -369,7 +369,7 @@ async function apiSubmitWork(db, user, request, isAdmin) {
     const o = await db.prepare("SELECT email FROM users WHERE email=?1").bind(owner).first();
     if (!o) return json({ error: "owner_not_found" }, 404);
   }
-  const title = String(form.get("title") || "").trim().slice(0, 120);
+  const title = String(form.get("title") || "").trim().slice(0, 500);  // 課題1ではプロンプト欄として使う
   const note = String(form.get("note") || "").trim().slice(0, 2000);
   const url = String(form.get("url") || "").trim();
   if (url && !isHttpUrl(url)) return json({ error: "bad_url" }, 400);
