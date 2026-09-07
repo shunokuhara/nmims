@@ -106,3 +106,4 @@ wrangler d1 export peereval --remote --output peereval-$(date +%F).sql
 
 `worker/seed.js` に管理者のパスワードハッシュが入る。**リポジトリは private にすること。**
 提出物（学生の HTML）は D1 の中にあり、リポジトリには入らない。
+<!-- rebuild -->
