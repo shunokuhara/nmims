@@ -243,6 +243,8 @@ const EXT_TYPE = { html: "text/html; charset=utf-8", htm: "text/html; charset=ut
   jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", svg: "image/svg+xml" };
 const fileTypeOf = (name) => EXT_TYPE[String(name || "").toLowerCase().split(".").pop()] || "";
 const isHtmlType = (t) => String(t || "").startsWith("text/html");
+// D1 から読んだ BLOB（number[] / ArrayBuffer / Uint8Array のどれでも）を Uint8Array にする
+const toBytes = (b) => b instanceof Uint8Array ? b : b instanceof ArrayBuffer ? new Uint8Array(b) : Array.isArray(b) ? Uint8Array.from(b) : new Uint8Array(0);
 
 // ---------- 出題（評価する作品の割当） ----------
 // 呼ばれた時点で、その学生に割り当て済みの作品が k 本未満なら、足りない分を補充する。
@@ -532,7 +534,9 @@ async function handleApi(url, request, env, db) {
       const t = await db.prepare("SELECT 1 x FROM tasks WHERE rater_email=?1 AND work_id=?2").bind(user.email, id).first();
       if (!t) return json({ error: "forbidden" }, 403);
     }
-    return new Response(w.file_blob, { status: 200, headers: {
+    // D1 は BLOB を number[] で返す（ArrayBuffer ではない）。そのまま Response に渡すと
+    // "137,80,78,..." という文字列になり、画像も HTML も壊れる。必ずバイト列に戻す。
+    return new Response(toBytes(w.file_blob), { status: 200, headers: {
       "content-type": w.file_type || "application/octet-stream",
       "content-security-policy": "sandbox allow-scripts; default-src * data: blob: 'unsafe-inline' 'unsafe-eval'; frame-ancestors 'self'",
       "x-content-type-options": "nosniff", "cache-control": "private, max-age=300",
