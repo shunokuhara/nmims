@@ -1,0 +1,127 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>提出物ギャラリー — 管理画面</title><link rel="stylesheet" href="/styles.css">
+<style>
+main{max-width:1400px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
+.toolbar label{margin:0 0 4px}
+.toolbar .narrow{flex:0 0 150px}
+.toolbar .wide{flex:1;min-width:200px}
+.grid{display:grid;gap:16px}
+.grid.c1{grid-template-columns:1fr;max-width:900px;margin:0 auto}
+.grid.c2{grid-template-columns:repeat(2,1fr)}
+.grid.c3{grid-template-columns:repeat(3,1fr)}
+@media(max-width:1000px){.grid.c3{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){.grid.c2,.grid.c3{grid-template-columns:1fr}}
+.wk{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin:0}
+.wk.off{opacity:.5}
+.wk .hd{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.wk .hd b{font-size:14px}
+.wk .hd .id{font-size:12px;color:var(--mut)}
+.wk .hd .sp{flex:1}
+.wk .ft{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:12px;color:var(--mut)}
+.wk .ft a{white-space:nowrap}
+.wk pre{white-space:pre-wrap;font-family:inherit;font-size:12px;margin:6px 0 0;padding:6px 8px;background:#0d1016;border:1px solid var(--line);border-radius:6px;max-height:120px;overflow:auto}
+.wk .noembed{display:flex;align-items:center;justify-content:center;height:100%;padding:16px;text-align:center}
+.score{font-size:12px;padding:1px 8px;border-radius:99px;background:#2a2f3a;color:var(--fg)}
+.score.none{color:var(--mut)}
+.empty{color:var(--mut);padding:40px;text-align:center}
+</style></head><body>
+<header>
+  <h1>提出物ギャラリー</h1>
+  <span id="count" class="mut"></span>
+  <span class="sp"></span>
+  <a href="/admin/" class="mut">管理画面に戻る</a>
+  <button class="sec" id="logout">ログアウト</button>
+</header>
+<main>
+  <div id="msg" class="msg"></div>
+  <div class="tabs"><a href="#" data-t="video" class="on">課題2 動画</a><a href="#" data-t="image">課題1 画像</a></div>
+  <div class="toolbar">
+    <div class="wide"><label>検索（ID・学籍番号・氏名・メール）</label><input id="q" placeholder="例: v003 / 山田"></div>
+    <div class="narrow"><label>表示</label><select id="filter">
+      <option value="all">すべて</option><option value="active">出題中のみ</option><option value="off">出題停止のみ</option>
+      <option value="noembed">埋め込み不可のみ</option><option value="norate">未評価（回答0）のみ</option>
+    </select></div>
+    <div class="narrow"><label>並び順</label><select id="sort">
+      <option value="id">ID順</option><option value="sid">学籍番号順</option><option value="total">合計点が高い順</option>
+      <option value="total_asc">合計点が低い順</option><option value="n">回答数が少ない順</option><option value="updated">更新が新しい順</option>
+    </select></div>
+    <div class="narrow"><label>列数</label><select id="cols"><option value="1">1列（大きく）</option><option value="2" selected>2列</option><option value="3">3列</option></select></div>
+    <div class="narrow"><label>&nbsp;</label><button class="sec" id="reload">再読込</button></div>
+  </div>
+  <div id="grid" class="grid c2"></div>
+</main>
+<script>
+const $=(s)=>document.querySelector(s);
+const esc=(s)=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const show=(t,k)=>{const m=$('#msg');m.textContent=t;m.className='msg '+k;setTimeout(()=>{m.className='msg'},5000);};
+async function api(p,o){const r=await fetch(p,o);if(r.status===401){location.href='/';return null;}
+  const d=await r.json().catch(()=>({}));if(!r.ok){show('エラー: '+(d.error||r.status)+(d.detail?' '+d.detail:''),'err');return null;}return d;}
+const post=(p,b)=>api(p,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)});
+
+let T=new URLSearchParams(location.search).get('track')==='image'?'image':'video';
+let WORKS=[],MAX=0;
+
+async function load(){
+  const [w,p]=await Promise.all([api('/api/admin/works?track='+T),api('/api/admin/progress?track='+T)]);
+  if(!w||!p)return;
+  MAX=p.max;
+  const score=Object.fromEntries(p.works.map(x=>[x.id,x]));
+  WORKS=w.works.map(x=>({...x,total:score[x.id]?.total??null,total_pct:score[x.id]?.total_pct??null,n:score[x.id]?.n??0}));
+  render();
+}
+
+function viewer(w){
+  if(T==='video'){
+    if(w.embed_url) return `<div class="videobox"><iframe src="${esc(w.embed_url)}" loading="lazy" allow="autoplay; fullscreen" allowfullscreen referrerpolicy="no-referrer"></iframe></div>`;
+    return `<div class="videobox"><div class="noembed"><span class="mut">埋め込み不可。<a href="${esc(w.url)}" target="_blank" rel="noopener">リンクを新しいタブで開く</a></span></div></div>`;
+  }
+  if(w.has_file&&w.is_html) return `<div class="workbox"><iframe src="/api/work/${esc(w.id)}/file" loading="lazy" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe></div>`;
+  if(w.has_file) return `<div class="workbox"><img src="/api/work/${esc(w.id)}/file" loading="lazy" alt=""></div>`;
+  return `<div class="workbox"><div class="noembed"><span class="mut">ファイルなし</span></div></div>`;
+}
+
+function render(){
+  const q=$('#q').value.trim().toLowerCase(), f=$('#filter').value, s=$('#sort').value;
+  let ws=WORKS.filter(w=>{
+    if(q&&![w.id,w.student_id,w.owner_name,w.owner_email].some(x=>String(x||'').toLowerCase().includes(q)))return false;
+    if(f==='active')return w.active; if(f==='off')return !w.active;
+    if(f==='noembed')return T==='video'?!w.embed_url:!w.has_file;
+    if(f==='norate')return !w.n;
+    return true;});
+  ws.sort((a,b)=>s==='sid'?String(a.student_id).localeCompare(String(b.student_id))||a.id.localeCompare(b.id)
+    :s==='total'?((b.total??-1)-(a.total??-1)):s==='total_asc'?((a.total??99)-(b.total??99))
+    :s==='n'?(a.n-b.n):s==='updated'?String(b.updated_at).localeCompare(String(a.updated_at)):a.id.localeCompare(b.id));
+  $('#count').textContent=`${ws.length} / ${WORKS.length} 件`;
+  $('#grid').className='grid c'+$('#cols').value;
+  if(!ws.length){$('#grid').innerHTML='<div class="empty">該当する提出物がありません</div>';return;}
+  $('#grid').innerHTML=ws.map(w=>`<div class="wk ${w.active?'':'off'}" data-id="${esc(w.id)}">
+    <div class="hd"><span class="id">${esc(w.id)}</span><b>${esc(w.owner_name)}</b><span class="mut">${esc(w.student_id)}</span><span class="sp"></span>
+      ${w.total==null?'<span class="score none">未評価</span>':`<span class="score" title="満点 ${MAX}">${w.total} / ${MAX}（${w.total_pct}点）</span>`}</div>
+    ${viewer(w)}
+    <div class="ft">
+      <span>回答 ${w.n_done}/${w.n_assigned}</span>
+      ${w.url?`<a href="${esc(w.url)}" target="_blank" rel="noopener">${T==='video'?'元のリンク':'リンク'}</a>`:''}
+      ${w.has_file?`<a href="/api/work/${esc(w.id)}/file" target="_blank" rel="noopener">${esc(w.file_name)}</a>`:''}
+      <span>${esc(String(w.updated_at).slice(0,16).replace('T',' '))}</span>
+      <span class="sp"></span>
+      <label style="margin:0;display:inline-flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" style="width:auto;margin:0" ${w.active?'checked':''}>出題</label>
+    </div>
+    ${w.title?`<details><summary>プロンプト</summary><pre>${esc(w.title)}</pre></details>`:''}
+    ${w.note?`<details><summary>メモ</summary><pre>${esc(w.note)}</pre></details>`:''}
+  </div>`).join('');
+  document.querySelectorAll('.wk input[type=checkbox]').forEach(cb=>cb.addEventListener('change',async e=>{
+    const id=cb.closest('.wk').dataset.id;
+    if(await post('/api/admin/work',{id,active:e.target.checked})){const w=WORKS.find(x=>x.id===id);w.active=e.target.checked?1:0;cb.closest('.wk').classList.toggle('off',!w.active);show('更新しました','ok');}
+  }));
+}
+
+document.querySelectorAll('[data-t]').forEach(a=>{a.classList.toggle('on',a.dataset.t===T);
+  a.addEventListener('click',e=>{e.preventDefault();T=a.dataset.t;history.replaceState(null,'','?track='+T);
+    document.querySelectorAll('[data-t]').forEach(x=>x.classList.toggle('on',x===a));load();});});
+['q','filter','sort','cols'].forEach(id=>$('#'+id).addEventListener(id==='q'?'input':'change',render));
+$('#reload').addEventListener('click',load);
+$('#logout').addEventListener('click',async()=>{await fetch('/api/logout',{method:'POST'});location.href='/';});
+(async()=>{const me=await api('/api/me');if(!me)return;if(me.role!=='admin'){location.href='/student/';return;}await load();})();
+</script></body></html>

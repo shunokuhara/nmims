@@ -1,127 +1,214 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>提出物ギャラリー — 管理画面</title><link rel="stylesheet" href="/styles.css">
-<style>
-main{max-width:1400px}
-.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
-.toolbar label{margin:0 0 4px}
-.toolbar .narrow{flex:0 0 150px}
-.toolbar .wide{flex:1;min-width:200px}
-.grid{display:grid;gap:16px}
-.grid.c1{grid-template-columns:1fr;max-width:900px;margin:0 auto}
-.grid.c2{grid-template-columns:repeat(2,1fr)}
-.grid.c3{grid-template-columns:repeat(3,1fr)}
-@media(max-width:1000px){.grid.c3{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:640px){.grid.c2,.grid.c3{grid-template-columns:1fr}}
-.wk{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin:0}
-.wk.off{opacity:.5}
-.wk .hd{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;flex-wrap:wrap}
-.wk .hd b{font-size:14px}
-.wk .hd .id{font-size:12px;color:var(--mut)}
-.wk .hd .sp{flex:1}
-.wk .ft{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:12px;color:var(--mut)}
-.wk .ft a{white-space:nowrap}
-.wk pre{white-space:pre-wrap;font-family:inherit;font-size:12px;margin:6px 0 0;padding:6px 8px;background:#0d1016;border:1px solid var(--line);border-radius:6px;max-height:120px;overflow:auto}
-.wk .noembed{display:flex;align-items:center;justify-content:center;height:100%;padding:16px;text-align:center}
-.score{font-size:12px;padding:1px 8px;border-radius:99px;background:#2a2f3a;color:var(--fg)}
-.score.none{color:var(--mut)}
-.empty{color:var(--mut);padding:40px;text-align:center}
-</style></head><body>
+<title>管理画面 — Peer Evaluation</title><link rel="stylesheet" href="/styles.css"></head><body>
 <header>
-  <h1>提出物ギャラリー</h1>
-  <span id="count" class="mut"></span>
-  <span class="sp"></span>
-  <a href="/admin/" class="mut">管理画面に戻る</a>
+  <h1>相互評価 / 管理画面</h1><span class="sp"></span>
+  <span id="who" class="mut"></span>
   <button class="sec" id="logout">ログアウト</button>
 </header>
 <main>
   <div id="msg" class="msg"></div>
-  <div class="tabs"><a href="#" data-t="video" class="on">課題2 動画</a><a href="#" data-t="image">課題1 画像</a></div>
-  <div class="toolbar">
-    <div class="wide"><label>検索（ID・学籍番号・氏名・メール）</label><input id="q" placeholder="例: v003 / 山田"></div>
-    <div class="narrow"><label>表示</label><select id="filter">
-      <option value="all">すべて</option><option value="active">出題中のみ</option><option value="off">出題停止のみ</option>
-      <option value="noembed">埋め込み不可のみ</option><option value="norate">未評価（回答0）のみ</option>
-    </select></div>
-    <div class="narrow"><label>並び順</label><select id="sort">
-      <option value="id">ID順</option><option value="sid">学籍番号順</option><option value="total">合計点が高い順</option>
-      <option value="total_asc">合計点が低い順</option><option value="n">回答数が少ない順</option><option value="updated">更新が新しい順</option>
-    </select></div>
-    <div class="narrow"><label>列数</label><select id="cols"><option value="1">1列（大きく）</option><option value="2" selected>2列</option><option value="3">3列</option></select></div>
-    <div class="narrow"><label>&nbsp;</label><button class="sec" id="reload">再読込</button></div>
+
+  <div class="card">
+    <h2>設定</h2>
+    <div class="row">
+      <div class="narrow"><label>課題1 提出受付</label><select id="s_image_submit"><option value="1">受付中</option><option value="0">停止</option></select></div>
+      <div class="narrow"><label>課題1 評価受付</label><select id="s_image_eval"><option value="1">受付中</option><option value="0">停止</option></select></div>
+      <div class="narrow"><label>課題1 1人あたり評価数</label><input id="s_image_k" type="number" min="0" max="100"></div>
+      <div class="narrow"><label>課題1 結果公開</label><select id="s_image_results"><option value="0">非公開</option><option value="1">公開</option></select></div>
+      <div class="narrow"><label>課題2 提出受付</label><select id="s_video_submit"><option value="1">受付中</option><option value="0">停止</option></select></div>
+      <div class="narrow"><label>課題2 評価受付</label><select id="s_video_eval"><option value="1">受付中</option><option value="0">停止</option></select></div>
+      <div class="narrow"><label>課題2 1人あたり評価数</label><input id="s_video_k" type="number" min="0" max="100"></div>
+      <div class="narrow"><label>課題2 結果公開</label><select id="s_video_results"><option value="0">非公開</option><option value="1">公開</option></select></div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <div class="narrow"><label>自己登録</label><select id="s_register_open"><option value="1">受付中</option><option value="0">停止</option></select></div>
+      <div class="narrow"><label>登録コード（空なら不要）</label><input id="s_register_code"></div>
+      <div><label>学生画面に出す告知（締切など）</label><input id="s_notice"></div>
+      <div class="narrow"><label>&nbsp;</label><button id="s_save">保存</button></div>
+    </div>
+    <p class="mut" style="margin-top:8px">「結果公開」を公開にすると、学生のマイページに自分の作品が受けた評価（項目別平均・総合平均・コメント。評価者名は非表示）が出ます。評価期間中に見せると後の評価に影響するので、評価受付を停止してから公開してください。評価数を増やすと、学生が次に評価画面を開いたときに不足分が自動で追加されます。減らしても割当済みの分は消えません。</p>
   </div>
-  <div id="grid" class="grid c2"></div>
+
+  <div class="card">
+    <h2>学生・管理者 <span id="ucount" class="mut"></span></h2>
+    <div style="max-height:380px;overflow:auto">
+      <table id="users"><thead><tr>
+        <th>学籍番号</th><th>氏名</th><th>メール</th><th>権限</th><th>状態</th><th>提出</th><th>課題1 評価</th><th>課題2 評価</th><th></th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+    <h3>追加 / 更新</h3>
+    <p class="mut">既存のメールアドレスを入れると更新になります。パスワード欄が空なら現在のパスワードを保ちます（8文字以上）。学生のパスワード忘れはここでリセットします。</p>
+    <div class="row">
+      <div><label>メールアドレス</label><input id="u_email" type="email"></div>
+      <div><label>氏名</label><input id="u_name"></div>
+      <div class="narrow"><label>学籍番号</label><input id="u_sid"></div>
+      <div class="narrow"><label>権限</label><select id="u_role"><option value="student">学生</option><option value="admin">管理者</option></select></div>
+      <div><label>パスワード</label><input id="u_pw" type="text" placeholder="新規は必須"></div>
+      <div class="narrow"><label>&nbsp;</label><button id="u_save">保存</button></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>提出物 <a href="/admin/gallery/?track=video" class="sub" style="font-weight:600">全作品を並べて見る（ギャラリー）</a></h2>
+    <div class="tabs"><a href="#" data-wt="image" class="on">課題1 画像</a><a href="#" data-wt="video">課題2 動画</a></div>
+    <div style="max-height:420px;overflow:auto">
+      <table id="works"><thead><tr>
+        <th>ID</th><th>学籍番号</th><th>氏名</th><th>プロンプト</th><th>中身</th><th>割当/回答</th><th>更新</th><th>出題</th><th></th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+    <h3>代理提出</h3>
+    <p class="mut">学生が提出できないときに、管理者が本人のメールアドレスを指定して登録します。同じ学生の同じ課題があれば上書きです。</p>
+    <form id="proxy" enctype="multipart/form-data" class="row">
+      <div class="narrow"><label>課題</label><select name="track"><option value="image">課題1 画像</option><option value="video">課題2 動画</option></select></div>
+      <div><label>学生のメール</label><input name="owner_email" type="email"></div>
+      <div><label>URL</label><input name="url" type="url" placeholder="https://"></div>
+      <div><label>ファイル（課題1のみ）</label><input name="file" type="file" accept=".html,.htm,.png,.jpg,.jpeg,.webp,.svg"></div>
+      <div class="narrow"><label>&nbsp;</label><button type="submit">登録</button></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>集計（モニタリング用）</h2>
+    <div class="tabs"><a href="#" data-pt="image" class="on">課題1 画像</a><a href="#" data-pt="video">課題2 動画</a></div>
+    <div id="mon_head" class="mut" style="margin:8px 0"></div>
+
+    <h3>作品ごと</h3>
+    <div class="row" style="margin-bottom:8px">
+      <div class="narrow"><label>並び順</label><select id="mon_sort">
+        <option value="total">合計点が高い順</option><option value="total_asc">合計点が低い順</option>
+        <option value="n">回答数が少ない順</option><option value="sd">ばらつきが大きい順</option><option value="id">ID順</option>
+      </select></div>
+      <div class="sp"></div>
+    </div>
+    <div style="max-height:460px;overflow:auto">
+      <table id="mon_works"><thead></thead><tbody></tbody></table>
+    </div>
+    <div id="comments"></div>
+
+    <h3>評価者ごと（甘辛の目安）</h3>
+    <table id="mon_raters"><thead><tr>
+      <th>評価者</th><th>回答数</th><th>合計の平均</th><th>SD</th><th>回答時間の中央値</th><th>10秒未満の割合</th>
+    </tr></thead><tbody></tbody></table>
+
+    <h3>選択肢の使用率</h3>
+    <table id="mon_usage"><thead><tr><th>項目</th><th>0</th><th>1</th><th>2</th><th>3</th></tr></thead><tbody></tbody></table>
+
+    <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+      <a href="/api/admin/export.csv?track=image"><button class="sec">課題1 回答CSV</button></a>
+      <a href="/api/admin/summary.csv?track=image"><button class="sec">課題1 作品別集計CSV</button></a>
+      <a href="/api/admin/export.csv?track=video"><button class="sec">課題2 回答CSV</button></a>
+      <a href="/api/admin/summary.csv?track=video"><button class="sec">課題2 作品別集計CSV</button></a>
+    </div>
+  </div>
 </main>
 <script>
 const $=(s)=>document.querySelector(s);
-const esc=(s)=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const show=(t,k)=>{const m=$('#msg');m.textContent=t;m.className='msg '+k;setTimeout(()=>{m.className='msg'},5000);};
+const esc=(s)=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function api(p,o){const r=await fetch(p,o);if(r.status===401){location.href='/';return null;}
   const d=await r.json().catch(()=>({}));if(!r.ok){show('エラー: '+(d.error||r.status)+(d.detail?' '+d.detail:''),'err');return null;}return d;}
 const post=(p,b)=>api(p,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)});
+let WT='image',PT='image',MON=null;
 
-let T=new URLSearchParams(location.search).get('track')==='image'?'image':'video';
-let WORKS=[],MAX=0;
+async function loadMe(){const d=await api('/api/me');if(!d)return;if(d.role!=='admin'){location.href='/student/';return;}$('#who').textContent=d.name||d.email;}
 
-async function load(){
-  const [w,p]=await Promise.all([api('/api/admin/works?track='+T),api('/api/admin/progress?track='+T)]);
-  if(!w||!p)return;
-  MAX=p.max;
-  const score=Object.fromEntries(p.works.map(x=>[x.id,x]));
-  WORKS=w.works.map(x=>({...x,total:score[x.id]?.total??null,total_pct:score[x.id]?.total_pct??null,n:score[x.id]?.n??0}));
-  render();
+async function loadSettings(){
+  const d=await api('/api/admin/settings'); if(!d)return;
+  for(const k of ['image_submit','image_eval','image_k','image_results','video_submit','video_eval','video_k','video_results','register_open','register_code','notice']) $('#s_'+k).value=d.settings[k];
 }
+$('#s_save').addEventListener('click',async()=>{
+  const b={};for(const k of ['image_submit','image_eval','image_k','image_results','video_submit','video_eval','video_k','video_results','register_open','register_code','notice']) b[k]=$('#s_'+k).value;
+  if(await post('/api/admin/settings',b))show('設定を保存しました','ok');
+});
 
-function viewer(w){
-  if(T==='video'){
-    if(w.embed_url) return `<div class="videobox"><iframe src="${esc(w.embed_url)}" loading="lazy" allow="autoplay; fullscreen" allowfullscreen referrerpolicy="no-referrer"></iframe></div>`;
-    return `<div class="videobox"><div class="noembed"><span class="mut">埋め込み不可。<a href="${esc(w.url)}" target="_blank" rel="noopener">リンクを新しいタブで開く</a></span></div></div>`;
+async function loadUsers(){
+  const d=await api('/api/admin/users'); if(!d)return;
+  $('#ucount').textContent=`（${d.users.filter(u=>u.role!=='admin').length}名）`;
+  const tb=$('#users tbody'); tb.innerHTML='';
+  for(const u of d.users){
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${esc(u.student_id)}</td><td>${esc(u.name)}</td><td>${esc(u.email)}</td>
+      <td>${u.role==='admin'?'管理者':'学生'}</td><td>${u.active?'有効':'<span style="color:var(--warn)">停止</span>'}</td>
+      <td>${u.has_image?'画':'<span class="mut">-</span>'} ${u.has_video?'動':'<span class="mut">-</span>'}</td>
+      <td>${u.image_done}/${u.image_tasks}</td><td>${u.video_done}/${u.video_tasks}</td>
+      <td style="white-space:nowrap">
+        <button class="sec" data-act="edit">編集</button>
+        <button class="sec" data-act="toggle">${u.active?'停止':'再開'}</button>
+        <button class="sec" data-act="rb_image" title="課題1の割当をやり直す">再割当1</button>
+        <button class="sec" data-act="rb_video" title="課題2の割当をやり直す">再割当2</button></td>`;
+    tr.querySelector('[data-act=edit]').addEventListener('click',()=>{$('#u_email').value=u.email;$('#u_name').value=u.name;$('#u_sid').value=u.student_id;$('#u_role').value=u.role;$('#u_pw').value='';$('#u_email').scrollIntoView();});
+    tr.querySelector('[data-act=toggle]').addEventListener('click',async()=>{if(await post('/api/admin/user',{email:u.email,active:u.active?0:1}))loadUsers();});
+    for(const t of ['image','video']) tr.querySelector(`[data-act=rb_${t}]`).addEventListener('click',async()=>{
+      let r=await fetch('/api/admin/rebuild',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:u.email,track:t})});
+      let d=await r.json();
+      if(r.status===409){if(!confirm(`回答が ${d.n} 件あります。回答ごと消して割当をやり直しますか？`))return;
+        r=await fetch('/api/admin/rebuild',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:u.email,track:t,force:true})});d=await r.json();}
+      if(!r.ok){show('エラー: '+d.error,'err');return;}
+      show(`割当をやり直しました（${d.n} 件）`,'ok');loadUsers();
+    });
+    tb.appendChild(tr);
   }
-  if(w.has_file&&w.is_html) return `<div class="workbox"><iframe src="/api/work/${esc(w.id)}/file" loading="lazy" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe></div>`;
-  if(w.has_file) return `<div class="workbox"><img src="/api/work/${esc(w.id)}/file" loading="lazy" alt=""></div>`;
-  return `<div class="workbox"><div class="noembed"><span class="mut">ファイルなし</span></div></div>`;
 }
+$('#u_save').addEventListener('click',async()=>{
+  const b={email:$('#u_email').value,name:$('#u_name').value,student_id:$('#u_sid').value,role:$('#u_role').value};
+  if($('#u_pw').value)b.password=$('#u_pw').value;
+  if(await post('/api/admin/user',b)){show('保存しました','ok');$('#u_pw').value='';loadUsers();}
+});
 
-function render(){
-  const q=$('#q').value.trim().toLowerCase(), f=$('#filter').value, s=$('#sort').value;
-  let ws=WORKS.filter(w=>{
-    if(q&&![w.id,w.student_id,w.owner_name,w.owner_email].some(x=>String(x||'').toLowerCase().includes(q)))return false;
-    if(f==='active')return w.active; if(f==='off')return !w.active;
-    if(f==='noembed')return T==='video'?!w.embed_url:!w.has_file;
-    if(f==='norate')return !w.n;
-    return true;});
-  ws.sort((a,b)=>s==='sid'?String(a.student_id).localeCompare(String(b.student_id))||a.id.localeCompare(b.id)
-    :s==='total'?((b.total??-1)-(a.total??-1)):s==='total_asc'?((a.total??99)-(b.total??99))
-    :s==='n'?(a.n-b.n):s==='updated'?String(b.updated_at).localeCompare(String(a.updated_at)):a.id.localeCompare(b.id));
-  $('#count').textContent=`${ws.length} / ${WORKS.length} 件`;
-  $('#grid').className='grid c'+$('#cols').value;
-  if(!ws.length){$('#grid').innerHTML='<div class="empty">該当する提出物がありません</div>';return;}
-  $('#grid').innerHTML=ws.map(w=>`<div class="wk ${w.active?'':'off'}" data-id="${esc(w.id)}">
-    <div class="hd"><span class="id">${esc(w.id)}</span><b>${esc(w.owner_name)}</b><span class="mut">${esc(w.student_id)}</span><span class="sp"></span>
-      ${w.total==null?'<span class="score none">未評価</span>':`<span class="score" title="満点 ${MAX}">${w.total} / ${MAX}（${w.total_pct}点）</span>`}</div>
-    ${viewer(w)}
-    <div class="ft">
-      <span>回答 ${w.n_done}/${w.n_assigned}</span>
-      ${w.url?`<a href="${esc(w.url)}" target="_blank" rel="noopener">${T==='video'?'元のリンク':'リンク'}</a>`:''}
-      ${w.has_file?`<a href="/api/work/${esc(w.id)}/file" target="_blank" rel="noopener">${esc(w.file_name)}</a>`:''}
-      <span>${esc(String(w.updated_at).slice(0,16).replace('T',' '))}</span>
-      <span class="sp"></span>
-      <label style="margin:0;display:inline-flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" style="width:auto;margin:0" ${w.active?'checked':''}>出題</label>
-    </div>
-    ${w.title?`<details><summary>プロンプト</summary><pre>${esc(w.title)}</pre></details>`:''}
-    ${w.note?`<details><summary>メモ</summary><pre>${esc(w.note)}</pre></details>`:''}
-  </div>`).join('');
-  document.querySelectorAll('.wk input[type=checkbox]').forEach(cb=>cb.addEventListener('change',async e=>{
-    const id=cb.closest('.wk').dataset.id;
-    if(await post('/api/admin/work',{id,active:e.target.checked})){const w=WORKS.find(x=>x.id===id);w.active=e.target.checked?1:0;cb.closest('.wk').classList.toggle('off',!w.active);show('更新しました','ok');}
-  }));
+async function loadWorks(){
+  const d=await api('/api/admin/works?track='+WT); if(!d)return;
+  const tb=$('#works tbody'); tb.innerHTML='';
+  for(const w of d.works){
+    const body=w.has_file?`<a href="/api/work/${esc(w.id)}/file" target="_blank" rel="noopener">${esc(w.file_name)}</a> (${Math.round(w.file_size/1000)}KB)`:'';
+    const link=w.url?`<a href="${esc(w.url)}" target="_blank" rel="noopener">${w.embed_url?'埋込可':'リンク'}</a>`:'';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${esc(w.id)}</td><td>${esc(w.student_id)}</td><td>${esc(w.owner_name)}<br><span class="mut">${esc(w.owner_email)}</span></td>
+      <td>${esc(w.title)}</td><td>${body}${body&&link?' / ':''}${link}</td><td>${w.n_done}/${w.n_assigned}</td>
+      <td class="mut">${esc(String(w.updated_at).slice(0,16).replace('T',' '))}</td>
+      <td><input type="checkbox" style="width:auto" ${w.active?'checked':''}></td>
+      <td><button class="sec" data-act="del">削除</button></td>`;
+    tr.querySelector('input').addEventListener('change',async e=>{if(await post('/api/admin/work',{id:w.id,active:e.target.checked}))show('更新しました','ok');});
+    tr.querySelector('[data-act=del]').addEventListener('click',async()=>{
+      if(!confirm(`${w.id}（${w.owner_name}）を削除しますか？この作品への割当と回答も消えます。`))return;
+      if(await post('/api/admin/work',{id:w.id,delete:true})){show('削除しました','ok');loadWorks();loadUsers();}
+    });
+    tb.appendChild(tr);
+  }
 }
+document.querySelectorAll('[data-wt]').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();WT=a.dataset.wt;
+  document.querySelectorAll('[data-wt]').forEach(x=>x.classList.toggle('on',x===a));loadWorks();}));
+$('#proxy').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const d=await api('/api/work',{method:'POST',body:new FormData(e.target)});
+  if(d){show(`登録しました（${d.id}）`,'ok');e.target.reset();loadWorks();loadUsers();}
+});
 
-document.querySelectorAll('[data-t]').forEach(a=>{a.classList.toggle('on',a.dataset.t===T);
-  a.addEventListener('click',e=>{e.preventDefault();T=a.dataset.t;history.replaceState(null,'','?track='+T);
-    document.querySelectorAll('[data-t]').forEach(x=>x.classList.toggle('on',x===a));load();});});
-['q','filter','sort','cols'].forEach(id=>$('#'+id).addEventListener(id==='q'?'input':'change',render));
-$('#reload').addEventListener('click',load);
+async function loadProgress(){
+  MON=await api('/api/admin/progress?track='+PT); if(!MON)return;
+  $('#mon_head').textContent=`回答 ${MON.n_responses} 件 / 満点 ${MON.max}`;
+  $('#mon_works thead').innerHTML=`<tr><th>ID</th><th>学籍番号</th><th>氏名</th><th>割当</th><th>回答</th>${MON.items.map(i=>`<th title="${esc(i.name)}">${esc(i.name_ja)}</th>`).join('')}<th>合計</th><th>100点換算</th><th>SD</th></tr>`;
+  $('#mon_usage tbody').innerHTML=MON.usage.map(u=>`<tr><td>${esc(u.name_ja)} <span class="mut">${esc(u.name)}</span></td>${[0,1,2,3].map(i=>u.counts[i]==null?'<td class="mut">-</td>':`<td ${u.rates[i]<0.05?'style="color:var(--warn)"':''}>${u.counts[i]} (${Math.round(u.rates[i]*100)}%)</td>`).join('')}</tr>`).join('');
+  $('#mon_raters tbody').innerHTML=MON.raters.map(r=>`<tr><td>${esc(r.name||r.email)}</td><td>${r.n}</td><td>${r.total??''}</td><td>${r.total_sd??''}</td>
+    <td>${r.median_ms==null?'':Math.round(r.median_ms/1000)+'秒'}</td><td ${r.fast_rate>0.3?'style="color:var(--warn)"':''}>${r.fast_rate==null?'':Math.round(r.fast_rate*100)+'%'}</td></tr>`).join('');
+  renderWorks();
+}
+function renderWorks(){
+  const s=$('#mon_sort').value;
+  const ws=MON.works.slice().sort((a,b)=>s==='id'?a.id.localeCompare(b.id):s==='n'?(a.n-b.n):s==='sd'?((b.total_sd||0)-(a.total_sd||0)):s==='total_asc'?((a.total??99)-(b.total??99)):((b.total??-1)-(a.total??-1)));
+  $('#mon_works tbody').innerHTML=ws.map(w=>`<tr ${w.active?'':'style="opacity:.5"'}><td>${esc(w.id)}</td><td>${esc(w.student_id)}</td><td>${esc(w.owner_name)}</td>
+    <td>${w.n_assigned}</td><td>${w.n}</td>${MON.items.map(i=>`<td>${w.per[i.id]??''}</td>`).join('')}
+    <td>${w.total??''}</td><td>${w.total_pct??''}</td><td>${w.total_sd??''}</td></tr>`).join('');
+  if(MON.text_items.length){
+    $('#comments').innerHTML=`<h3>コメント</h3>`+ws.filter(w=>w.n).map(w=>`<details><summary>${esc(w.id)} ${esc(w.owner_name)}（${w.n}件）</summary>
+      <table style="margin:6px 0 10px"><thead><tr><th>評価者</th>${MON.text_items.map(t=>`<th>${esc(t.name)}</th>`).join('')}</tr></thead>
+      <tbody>${w.comments.map(c=>`<tr><td>${esc(c.rater)}</td>${MON.text_items.map(t=>`<td>${esc(c[t.id])}</td>`).join('')}</tr>`).join('')}</tbody></table></details>`).join('');
+  }else $('#comments').innerHTML='';
+}
+$('#mon_sort').addEventListener('change',renderWorks);
+document.querySelectorAll('[data-pt]').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();PT=a.dataset.pt;
+  document.querySelectorAll('[data-pt]').forEach(x=>x.classList.toggle('on',x===a));loadProgress();}));
+
 $('#logout').addEventListener('click',async()=>{await fetch('/api/logout',{method:'POST'});location.href='/';});
-(async()=>{const me=await api('/api/me');if(!me)return;if(me.role!=='admin'){location.href='/student/';return;}await load();})();
+(async()=>{await loadMe();await loadSettings();await loadUsers();await loadWorks();await loadProgress();})();
 </script></body></html>
