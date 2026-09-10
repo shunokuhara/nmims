@@ -26,6 +26,11 @@ main{max-width:1400px}
 .score{font-size:12px;padding:1px 8px;border-radius:99px;background:#2a2f3a;color:var(--fg)}
 .score.none{color:var(--mut)}
 .empty{color:var(--mut);padding:40px;text-align:center}
+.single{max-width:960px;margin:0 auto}
+.pager{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.pager button{min-width:110px}
+.pager .pos{flex:1;text-align:center;color:var(--mut);font-size:13px}
+.pager .jump{width:auto;padding:6px 8px}
 </style></head><body>
 <header>
   <h1>提出物ギャラリー</h1>
@@ -47,7 +52,7 @@ main{max-width:1400px}
       <option value="id">ID順</option><option value="sid">学籍番号順</option><option value="total">合計点が高い順</option>
       <option value="total_asc">合計点が低い順</option><option value="n">回答数が少ない順</option><option value="updated">更新が新しい順</option>
     </select></div>
-    <div class="narrow"><label>列数</label><select id="cols"><option value="1">1列（大きく）</option><option value="2" selected>2列</option><option value="3">3列</option></select></div>
+    <div class="narrow"><label>列数</label><select id="cols"><option value="single">1件ずつ（← →で移動）</option><option value="1">1列（大きく）</option><option value="2" selected>2列</option><option value="3">3列</option></select></div>
     <div class="narrow"><label>&nbsp;</label><button class="sec" id="reload">再読込</button></div>
   </div>
   <div id="grid" class="grid c2"></div>
@@ -61,7 +66,7 @@ async function api(p,o){const r=await fetch(p,o);if(r.status===401){location.hre
 const post=(p,b)=>api(p,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)});
 
 let T=new URLSearchParams(location.search).get('track')==='image'?'image':'video';
-let WORKS=[],MAX=0;
+let WORKS=[],MAX=0,LIST=[],CUR=0;
 
 async function load(){
   const [w,p]=await Promise.all([api('/api/admin/works?track='+T),api('/api/admin/progress?track='+T)]);
@@ -82,21 +87,8 @@ function viewer(w){
   return `<div class="workbox"><div class="noembed"><span class="mut">ファイルなし</span></div></div>`;
 }
 
-function render(){
-  const q=$('#q').value.trim().toLowerCase(), f=$('#filter').value, s=$('#sort').value;
-  let ws=WORKS.filter(w=>{
-    if(q&&![w.id,w.student_id,w.owner_name,w.owner_email].some(x=>String(x||'').toLowerCase().includes(q)))return false;
-    if(f==='active')return w.active; if(f==='off')return !w.active;
-    if(f==='noembed')return T==='video'?!w.embed_url:!w.has_file;
-    if(f==='norate')return !w.n;
-    return true;});
-  ws.sort((a,b)=>s==='sid'?String(a.student_id).localeCompare(String(b.student_id))||a.id.localeCompare(b.id)
-    :s==='total'?((b.total??-1)-(a.total??-1)):s==='total_asc'?((a.total??99)-(b.total??99))
-    :s==='n'?(a.n-b.n):s==='updated'?String(b.updated_at).localeCompare(String(a.updated_at)):a.id.localeCompare(b.id));
-  $('#count').textContent=`${ws.length} / ${WORKS.length} 件`;
-  $('#grid').className='grid c'+$('#cols').value;
-  if(!ws.length){$('#grid').innerHTML='<div class="empty">該当する提出物がありません</div>';return;}
-  $('#grid').innerHTML=ws.map(w=>`<div class="wk ${w.active?'':'off'}" data-id="${esc(w.id)}">
+function card(w){
+  return `<div class="wk ${w.active?'':'off'}" data-id="${esc(w.id)}">
     <div class="hd"><span class="id">${esc(w.id)}</span><b>${esc(w.owner_name)}</b><span class="mut">${esc(w.student_id)}</span><span class="sp"></span>
       ${w.total==null?'<span class="score none">未評価</span>':`<span class="score" title="満点 ${MAX}">${w.total} / ${MAX}（${w.total_pct}点）</span>`}</div>
     ${viewer(w)}
@@ -110,7 +102,41 @@ function render(){
     </div>
     ${w.title?`<details><summary>プロンプト</summary><pre>${esc(w.title)}</pre></details>`:''}
     ${w.note?`<details><summary>メモ</summary><pre>${esc(w.note)}</pre></details>`:''}
-  </div>`).join('');
+  </div>`;
+}
+
+function render(){
+  const q=$('#q').value.trim().toLowerCase(), f=$('#filter').value, s=$('#sort').value;
+  let ws=WORKS.filter(w=>{
+    if(q&&![w.id,w.student_id,w.owner_name,w.owner_email].some(x=>String(x||'').toLowerCase().includes(q)))return false;
+    if(f==='active')return w.active; if(f==='off')return !w.active;
+    if(f==='noembed')return T==='video'?!w.embed_url:!w.has_file;
+    if(f==='norate')return !w.n;
+    return true;});
+  ws.sort((a,b)=>s==='sid'?String(a.student_id).localeCompare(String(b.student_id))||a.id.localeCompare(b.id)
+    :s==='total'?((b.total??-1)-(a.total??-1)):s==='total_asc'?((a.total??99)-(b.total??99))
+    :s==='n'?(a.n-b.n):s==='updated'?String(b.updated_at).localeCompare(String(a.updated_at)):a.id.localeCompare(b.id));
+  $('#count').textContent=`${ws.length} / ${WORKS.length} 件`;
+  LIST=ws;
+  const mode=$('#cols').value;
+  if(!ws.length){$('#grid').className='grid c1';$('#grid').innerHTML='<div class="empty">該当する提出物がありません</div>';return;}
+  if(mode==='single'){
+    if(CUR>=ws.length)CUR=ws.length-1; if(CUR<0)CUR=0;
+    const w=ws[CUR];
+    $('#grid').className='single';
+    $('#grid').innerHTML=`<div class="pager">
+        <button class="sec" id="prev" ${CUR===0?'disabled':''}>← 前へ</button>
+        <span class="pos">${CUR+1} / ${ws.length}</span>
+        <select class="jump" id="jump">${ws.map((x,i)=>`<option value="${i}" ${i===CUR?'selected':''}>${esc(x.id)} ${esc(x.owner_name)}</option>`).join('')}</select>
+        <button class="sec" id="next" ${CUR===ws.length-1?'disabled':''}>次へ →</button>
+      </div>${card(w)}`;
+    $('#prev').addEventListener('click',()=>{if(CUR>0){CUR--;render();}});
+    $('#next').addEventListener('click',()=>{if(CUR<ws.length-1){CUR++;render();}});
+    $('#jump').addEventListener('change',e=>{CUR=Number(e.target.value);render();});
+  }else{
+    $('#grid').className='grid c'+mode;
+    $('#grid').innerHTML=ws.map(card).join('');
+  }
   document.querySelectorAll('.wk input[type=checkbox]').forEach(cb=>cb.addEventListener('change',async e=>{
     const id=cb.closest('.wk').dataset.id;
     if(await post('/api/admin/work',{id,active:e.target.checked})){const w=WORKS.find(x=>x.id===id);w.active=e.target.checked?1:0;cb.closest('.wk').classList.toggle('off',!w.active);show('更新しました','ok');}
@@ -119,8 +145,14 @@ function render(){
 
 document.querySelectorAll('[data-t]').forEach(a=>{a.classList.toggle('on',a.dataset.t===T);
   a.addEventListener('click',e=>{e.preventDefault();T=a.dataset.t;history.replaceState(null,'','?track='+T);
-    document.querySelectorAll('[data-t]').forEach(x=>x.classList.toggle('on',x===a));load();});});
-['q','filter','sort','cols'].forEach(id=>$('#'+id).addEventListener(id==='q'?'input':'change',render));
+    document.querySelectorAll('[data-t]').forEach(x=>x.classList.toggle('on',x===a));CUR=0;load();});});
+['q','filter','sort','cols'].forEach(id=>$('#'+id).addEventListener(id==='q'?'input':'change',()=>{if(id!=='cols')CUR=0;render();}));
+document.addEventListener('keydown',e=>{
+  if($('#cols').value!=='single')return;
+  if(/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName))return;
+  if(e.key==='ArrowLeft'&&CUR>0){CUR--;render();}
+  else if(e.key==='ArrowRight'&&CUR<LIST.length-1){CUR++;render();}
+});
 $('#reload').addEventListener('click',load);
 $('#logout').addEventListener('click',async()=>{await fetch('/api/logout',{method:'POST'});location.href='/';});
 (async()=>{const me=await api('/api/me');if(!me)return;if(me.role!=='admin'){location.href='/student/';return;}await load();})();
