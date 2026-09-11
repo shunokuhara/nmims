@@ -1,6 +1,7 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>提出物ギャラリー — 管理画面</title><link rel="stylesheet" href="/styles.css">
+<script src="/admin/gallery/roster.js"></script>
 <style>
 main{max-width:1400px}
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
@@ -45,11 +46,11 @@ main{max-width:1400px}
   <div class="toolbar">
     <div class="wide"><label>検索（ID・学籍番号・氏名・メール）</label><input id="q" placeholder="例: v003 / 山田"></div>
     <div class="narrow"><label>表示</label><select id="filter">
-      <option value="all">すべて</option><option value="active">出題中のみ</option><option value="off">出題停止のみ</option>
+      <option value="all">すべて</option><option value="unmatched">名簿と照合できないもの</option><option value="active">出題中のみ</option><option value="off">出題停止のみ</option>
       <option value="noembed">埋め込み不可のみ</option><option value="norate">未評価（回答0）のみ</option>
     </select></div>
     <div class="narrow"><label>並び順</label><select id="sort">
-      <option value="id">ID順</option><option value="sid">学籍番号順</option><option value="total">合計点が高い順</option>
+      <option value="roster" selected>名簿順（Roll No.）</option><option value="id">ID順</option><option value="sid">入力された学籍番号順</option><option value="total">合計点が高い順</option>
       <option value="total_asc">合計点が低い順</option><option value="n">回答数が少ない順</option><option value="updated">更新が新しい順</option>
     </select></div>
     <div class="narrow"><label>列数</label><select id="cols"><option value="single">1件ずつ（← →で移動）</option><option value="1">1列（大きく）</option><option value="2" selected>2列</option><option value="3">3列</option></select></div>
@@ -68,12 +69,35 @@ const post=(p,b)=>api(p,{method:'POST',headers:{'content-type':'application/json
 let T=new URLSearchParams(location.search).get('track')==='image'?'image':'video';
 let WORKS=[],MAX=0,LIST=[],CUR=0;
 
+// 名簿照合。優先順位: 学籍番号欄が Roll No. か SAP id に一致 → 氏名の一致（姓と名の語がすべて含まれる）。
+const ROSTER=(window.ROSTER||[]).map((r,i)=>({pos:i,roll:r[0],sap:r[1],name:r[2],
+  toks:r[2].toUpperCase().replace(/[^A-Z ]/g,' ').split(/\s+/).filter(t=>t.length>1)}));
+const byRoll=new Map(ROSTER.map(r=>[r.roll.toUpperCase(),r])), bySap=new Map(ROSTER.map(r=>[r.sap,r]));
+function matchRoster(w){
+  const sid=String(w.student_id||'').toUpperCase().replace(/[\s\-_]/g,'');
+  if(byRoll.has(sid))return byRoll.get(sid);
+  const m=sid.match(/^B0*(\d{1,3})$/); if(m&&byRoll.has('B'+m[1].padStart(3,'0')))return byRoll.get('B'+m[1].padStart(3,'0'));
+  const digits=sid.replace(/\D/g,''); if(digits.length>=11&&bySap.has(digits.slice(-11)))return bySap.get(digits.slice(-11));
+  const toks=String(w.owner_name||'').toUpperCase().replace(/[^A-Z ]/g,' ').split(/\s+/).filter(t=>t.length>1);
+  if(!toks.length)return null;
+  // 名簿側の全語が入力名に含まれる候補。複数あれば入力名の語も全部一致するものを優先
+  const cand=ROSTER.filter(r=>r.toks.length&&r.toks.every(t=>toks.includes(t)));
+  if(cand.length===1)return cand[0];
+  if(cand.length>1){const c2=cand.filter(r=>toks.every(t=>r.toks.includes(t)));if(c2.length===1)return c2[0];}
+  // 逆方向（入力名が姓のみ等）は姓＋名の先頭語で一意なら採用
+  if(toks.length>=2){const c3=ROSTER.filter(r=>r.toks.includes(toks[0])&&r.toks.includes(toks[1]));if(c3.length===1)return c3[0];}
+  return null;
+}
+const rosterPos=(w)=>w.roster?w.roster.pos:Number.MAX_SAFE_INTEGER;
+const rollLabel=(w)=>w.roster?w.roster.roll:'';
+
 async function load(){
   const [w,p]=await Promise.all([api('/api/admin/works?track='+T),api('/api/admin/progress?track='+T)]);
   if(!w||!p)return;
   MAX=p.max;
   const score=Object.fromEntries(p.works.map(x=>[x.id,x]));
   WORKS=w.works.map(x=>({...x,total:score[x.id]?.total??null,total_pct:score[x.id]?.total_pct??null,n:score[x.id]?.n??0}));
+  WORKS.forEach(x=>{x.roster=matchRoster(x);});
   render();
 }
 
@@ -89,7 +113,7 @@ function viewer(w){
 
 function card(w){
   return `<div class="wk ${w.active?'':'off'}" data-id="${esc(w.id)}">
-    <div class="hd"><span class="id">${esc(w.id)}</span><b>${esc(w.owner_name)}</b><span class="mut">${esc(w.student_id)}</span><span class="sp"></span>
+    <div class="hd"><span class="id">${esc(w.id)}</span>${w.roster?`<b title="${esc(w.roster.name)}">${esc(w.roster.roll)}</b><span class="mut">SAP ${esc(w.roster.sap)}</span>`:'<span class="score none" title="名簿と照合できません">名簿外</span>'}<b>${esc(w.owner_name)}</b>${w.student_id&&(!w.roster||![w.roster.roll,w.roster.sap].includes(String(w.student_id).trim().toUpperCase()))?`<span class="mut">入力: ${esc(w.student_id)}</span>`:''}<span class="sp"></span>
       ${w.total==null?'<span class="score none">未評価</span>':`<span class="score" title="満点 ${MAX}">${w.total} / ${MAX}（${w.total_pct}点）</span>`}</div>
     ${viewer(w)}
     <div class="ft">
@@ -108,15 +132,17 @@ function card(w){
 function render(){
   const q=$('#q').value.trim().toLowerCase(), f=$('#filter').value, s=$('#sort').value;
   let ws=WORKS.filter(w=>{
-    if(q&&![w.id,w.student_id,w.owner_name,w.owner_email].some(x=>String(x||'').toLowerCase().includes(q)))return false;
-    if(f==='active')return w.active; if(f==='off')return !w.active;
+    if(q&&![w.id,w.student_id,w.owner_name,w.owner_email,w.roster?.roll,w.roster?.sap,w.roster?.name].some(x=>String(x||'').toLowerCase().includes(q)))return false;
+    if(f==='active')return w.active; if(f==='off')return !w.active; if(f==='unmatched')return !w.roster;
     if(f==='noembed')return T==='video'?!w.embed_url:!w.has_file;
     if(f==='norate')return !w.n;
     return true;});
-  ws.sort((a,b)=>s==='sid'?String(a.student_id).localeCompare(String(b.student_id))||a.id.localeCompare(b.id)
+  ws.sort((a,b)=>s==='roster'?(rosterPos(a)-rosterPos(b))||String(a.student_id).localeCompare(String(b.student_id))||a.id.localeCompare(b.id)
+    :s==='sid'?String(a.student_id).localeCompare(String(b.student_id))||a.id.localeCompare(b.id)
     :s==='total'?((b.total??-1)-(a.total??-1)):s==='total_asc'?((a.total??99)-(b.total??99))
     :s==='n'?(a.n-b.n):s==='updated'?String(b.updated_at).localeCompare(String(a.updated_at)):a.id.localeCompare(b.id));
-  $('#count').textContent=`${ws.length} / ${WORKS.length} 件`;
+  const um=WORKS.filter(w=>!w.roster).length;
+  $('#count').textContent=`${ws.length} / ${WORKS.length} 件`+(um?`（名簿と照合できないもの ${um} 件）`:'');
   LIST=ws;
   const mode=$('#cols').value;
   if(!ws.length){$('#grid').className='grid c1';$('#grid').innerHTML='<div class="empty">該当する提出物がありません</div>';return;}
@@ -127,7 +153,7 @@ function render(){
     $('#grid').innerHTML=`<div class="pager">
         <button class="sec" id="prev" ${CUR===0?'disabled':''}>← 前へ</button>
         <span class="pos">${CUR+1} / ${ws.length}</span>
-        <select class="jump" id="jump">${ws.map((x,i)=>`<option value="${i}" ${i===CUR?'selected':''}>${esc(x.id)} ${esc(x.owner_name)}</option>`).join('')}</select>
+        <select class="jump" id="jump">${ws.map((x,i)=>`<option value="${i}" ${i===CUR?'selected':''}>${x.roster?esc(x.roster.roll)+' ':''}${esc(x.owner_name)} (${esc(x.id)})</option>`).join('')}</select>
         <button class="sec" id="next" ${CUR===ws.length-1?'disabled':''}>次へ →</button>
       </div>${card(w)}`;
     $('#prev').addEventListener('click',()=>{if(CUR>0){CUR--;render();}});
