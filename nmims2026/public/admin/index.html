@@ -15,10 +15,12 @@
       <div class="narrow"><label>課題1 提出受付</label><select id="s_image_submit"><option value="1">受付中</option><option value="0">停止</option></select></div>
       <div class="narrow"><label>課題1 評価受付</label><select id="s_image_eval"><option value="1">受付中</option><option value="0">停止</option></select></div>
       <div class="narrow"><label>課題1 1人あたり評価数</label><input id="s_image_k" type="number" min="0" max="100"></div>
+      <div class="narrow"><label>課題1 全作品を学籍番号順で</label><select id="s_image_all"><option value="0">しない（k本を割当）</option><option value="1">する（全員分・Roll No.順）</option></select></div>
       <div class="narrow"><label>課題1 結果公開</label><select id="s_image_results"><option value="0">非公開</option><option value="1">公開</option></select></div>
       <div class="narrow"><label>課題2 提出受付</label><select id="s_video_submit"><option value="1">受付中</option><option value="0">停止</option></select></div>
       <div class="narrow"><label>課題2 評価受付</label><select id="s_video_eval"><option value="1">受付中</option><option value="0">停止</option></select></div>
       <div class="narrow"><label>課題2 1人あたり評価数</label><input id="s_video_k" type="number" min="0" max="100"></div>
+      <div class="narrow"><label>課題2 全作品を学籍番号順で</label><select id="s_video_all"><option value="0">しない（k本を割当）</option><option value="1">する（全員分・Roll No.順）</option></select></div>
       <div class="narrow"><label>課題2 結果公開</label><select id="s_video_results"><option value="0">非公開</option><option value="1">公開</option></select></div>
     </div>
     <div class="row" style="margin-top:8px">
@@ -115,10 +117,10 @@ async function loadMe(){const d=await api('/api/me');if(!d)return;if(d.role!=='a
 
 async function loadSettings(){
   const d=await api('/api/admin/settings'); if(!d)return;
-  for(const k of ['image_submit','image_eval','image_k','image_results','video_submit','video_eval','video_k','video_results','register_open','register_code','notice']) $('#s_'+k).value=d.settings[k];
+  for(const k of ['image_submit','image_eval','image_k','image_all','image_results','video_submit','video_eval','video_k','video_all','video_results','register_open','register_code','notice']) $('#s_'+k).value=d.settings[k];
 }
 $('#s_save').addEventListener('click',async()=>{
-  const b={};for(const k of ['image_submit','image_eval','image_k','image_results','video_submit','video_eval','video_k','video_results','register_open','register_code','notice']) b[k]=$('#s_'+k).value;
+  const b={};for(const k of ['image_submit','image_eval','image_k','image_all','image_results','video_submit','video_eval','video_k','video_all','video_results','register_open','register_code','notice']) b[k]=$('#s_'+k).value;
   if(await post('/api/admin/settings',b))show('設定を保存しました','ok');
 });
 
