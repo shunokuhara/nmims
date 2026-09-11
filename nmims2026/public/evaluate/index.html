@@ -42,11 +42,12 @@ async function refresh(){
   const done=STATE.tasks.filter(t=>t.done).length,n=STATE.tasks.length;
   $('#prog').textContent=`${done} / ${n}`;
   $('#progbar').style.width=(n?Math.round(100*done/n):0)+'%';
-  $('#nav').innerHTML=STATE.tasks.map(t=>`<a href="#" data-pos="${t.position}" class="${cur===t.position?'on':''}">#${t.position+1}${t.done?' ✓':''}</a>`).join('');
+  const lbl=(t)=>STATE.all_mode&&t.student_id?esc(t.student_id):'#'+(t.position+1);
+  $('#nav').innerHTML=STATE.tasks.map(t=>`<a href="#" data-pos="${t.position}" class="${cur===t.position?'on':''}">${lbl(t)}${t.done?' ✓':''}</a>`).join('');
   document.querySelectorAll('#nav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();cur=Number(a.dataset.pos);render();}));
   if(!STATE.eval_open){$('#view').innerHTML=`<div class="card"><h2>Evaluation is closed</h2><p class="mut">The instructor has closed peer evaluation for this assignment.</p></div>`;return;}
   if(!n){$('#view').innerHTML=`<div class="card"><h2>Nothing to evaluate yet</h2><p class="mut">No classmates' work has been submitted for this assignment. Please come back later.</p></div>`;return;}
-  if(cur==null){const next=STATE.tasks.find(t=>!t.done);cur=next?next.position:null;}
+  if(cur==null){const next=STATE.tasks.find(t=>!t.done);cur=next?next.position:null;}  // tasks は表示順（全作品モードでは学籍番号順）
   render();
 }
 
@@ -85,8 +86,8 @@ function render(){
   }
 
   $('#view').innerHTML=`<div class="card">
-      <h2>Work #${t.position+1}${t.done?' <span class="pill ok">submitted</span>':''}</h2>${viewer}
-      <p class="mut" style="margin-top:8px">The author's name is hidden. Judge the work itself.</p>
+      <h2>${STATE.all_mode&&t.student_id?'Work by '+esc(t.student_id):'Work #'+(t.position+1)}${t.done?' <span class="pill ok">submitted</span>':''}</h2>${viewer}
+      <p class="mut" style="margin-top:8px">${STATE.all_mode?'Judge the work itself, not the author.':"The author's name is hidden. Judge the work itself."}</p>
     </div>
     <div class="card">${qs}
       <div style="margin-top:18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
