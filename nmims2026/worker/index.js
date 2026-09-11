@@ -151,6 +151,7 @@ const SCHEMA = [
 ];
 const DEFAULT_SETTINGS = [
   ["image_k", "5"], ["video_k", "5"],          // 1人が評価する作品数
+  ["image_all", "0"], ["video_all", "0"],      // 1 なら k を無視して全作品を割り当て、学籍番号順に並べる
   ["image_submit", "1"], ["video_submit", "1"], // 提出の受付
   ["image_eval", "1"], ["video_eval", "1"],    // 評価の受付
   ["image_results", "0"], ["video_results", "0"], // 受けた評価の学生への公開（評価終了後に 1 にする）
@@ -246,12 +247,21 @@ const isHtmlType = (t) => String(t || "").startsWith("text/html");
 // D1 から読んだ BLOB（number[] / ArrayBuffer / Uint8Array のどれでも）を Uint8Array にする
 const toBytes = (b) => b instanceof Uint8Array ? b : b instanceof ArrayBuffer ? new Uint8Array(b) : Array.isArray(b) ? Uint8Array.from(b) : new Uint8Array(0);
 
+// 学籍番号の並べ替え用キー。Roll No.（B1 / b001 など）は B003 の形に正規化し、それ以外（SAP id 等）はその後ろ
+function rollKey(sid) {
+  const v = String(sid || "").toUpperCase().replace(/[\s\-_]/g, "");
+  const m = v.match(/^B0*(\d{1,3})$/);
+  if (m) return "0B" + m[1].padStart(3, "0");
+  return v ? "1" + v : "2";
+}
+
 // ---------- 出題（評価する作品の割当） ----------
 // 呼ばれた時点で、その学生に割り当て済みの作品が k 本未満なら、足りない分を補充する。
 // 候補は「有効」「自分の作品でない」「未割当」の作品から、割当回数が少ないものを優先する。
 // 同数のときは学生の seed で決まる順にする（再現できる）。
 async function ensureTasks(db, user, track) {
-  const k = Math.max(0, Number(await setting(db, `${track}_k`, "5")) || 0);
+  const all = (await setting(db, `${track}_all`, "0")) === "1";
+  const k = all ? Number.MAX_SAFE_INTEGER : Math.max(0, Number(await setting(db, `${track}_k`, "5")) || 0);
   const have = (await db.prepare("SELECT work_id FROM tasks WHERE rater_email=?1 AND track=?2 ORDER BY position")
     .bind(user.email, track).all()).results || [];
   if (have.length >= k) return have.length;
@@ -547,15 +557,19 @@ async function handleApi(url, request, env, db) {
     const track = trackOf(url.searchParams.get("track") || "");
     if (!track) return json({ error: "bad_track" }, 400);
     const evalOpen = (await setting(db, `${track}_eval`, "1")) === "1";
+    const all = (await setting(db, `${track}_all`, "0")) === "1";
     if (evalOpen) await ensureTasks(db, user, track);
     const tasks = (await db.prepare(
-      `SELECT t.position,t.work_id,w.title,w.url,w.embed_url,w.file_type,w.file_size,w.note,
+      `SELECT t.position,t.work_id,w.title,w.url,w.embed_url,w.file_type,w.file_size,w.note,u.student_id AS owner_sid,
               (SELECT answers FROM responses r WHERE r.rater_email=t.rater_email AND r.track=t.track AND r.position=t.position) AS answers
-         FROM tasks t JOIN works w ON w.id=t.work_id
+         FROM tasks t JOIN works w ON w.id=t.work_id LEFT JOIN users u ON u.email=w.owner_email
         WHERE t.rater_email=?1 AND t.track=?2 ORDER BY t.position`).bind(user.email, track).all()).results || [];
-    return json({ track, label: TRACKS[track].label, name: user.name || user.email, eval_open: evalOpen,
+    // 全作品モードでは学籍番号順に並べる（position は回答の鍵なので変えない。並び順だけ変える）
+    if (all) tasks.sort((a, b) => rollKey(a.owner_sid).localeCompare(rollKey(b.owner_sid)) || a.position - b.position);
+    return json({ track, label: TRACKS[track].label, name: user.name || user.email, eval_open: evalOpen, all_mode: all,
       tasks: tasks.map((t) => ({ position: t.position, work_id: t.work_id, title: t.title, url: t.url, embed_url: t.embed_url,
         has_file: !!t.file_size, is_html: isHtmlType(t.file_type), note: t.note, done: !!t.answers,
+        student_id: all ? String(t.owner_sid || "") : undefined,
         answers: t.answers ? parseAnswers(t.answers) : null })) });
   }
 
